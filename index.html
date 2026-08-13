@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conciliação Bancária &amp; Cartões</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- SheetJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<style>
+  :root{
+    --navy-950: #071427;
+    --navy-900: #0b1f3a;
+    --navy-800: #12294d;
+    --navy-700: #1a3763;
+    --navy-600: #234a82;
+    --blue-500: #2f6fed;
+    --blue-400: #5b8ef7;
+    --gray-50:  #f4f6fa;
+    --gray-100: #e8ecf3;
+    --gray-200: #d8dfeb;
+    --gray-400: #9aa7bd;
+    --gray-500: #718098;
+    --gray-700: #3c4a63;
+    --ink: #0d1b30;
+    --green: #16a34a;
+    --green-bg: #e8f7ee;
+    --red: #dc2626;
+    --red-bg: #fdeceb;
+    --amber: #d97706;
+    --amber-bg: #fdf3e2;
+    --sky: #2563eb;
+    --sky-bg: #e9f0fe;
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(13,27,48,.06), 0 8px 24px -12px rgba(13,27,48,.18);
+    --mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background:
+      radial-gradient(1200px 600px at 100% -10%, #0f2a52 0%, transparent 60%),
+      var(--gray-50);
+    color: var(--ink);
+    min-height:100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection{ background: var(--blue-400); color:white; }
+  *:focus-visible{ outline: 2px solid var(--blue-500); outline-offset: 2px; border-radius: 4px; }
+
+  .app{ max-width: 1240px; margin: 0 auto; padding: 28px 24px 80px; }
+
+  /* ---------- TOPBAR ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    background: linear-gradient(135deg, var(--navy-900), var(--navy-950) 70%);
+    border-radius: 18px;
+    padding: 22px 28px;
+    color:#eef3ff;
+    box-shadow: var(--shadow);
+    margin-bottom: 22px;
+    position:relative;
+    overflow:hidden;
+  }
+  .topbar::after{
+    content:"";
+    position:absolute; inset:0;
+    background: repeating-linear-gradient(115deg, rgba(255,255,255,.035) 0 2px, transparent 2px 34px);
+    pointer-events:none;
+  }
+  .brand{ display:flex; align-items:center; gap:14px; z-index:1;}
+  .brand-mark{
+    width:44px; height:44px; border-radius:10px;
+    background: linear-gradient(135deg, var(--blue-400), var(--blue-500));
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:18px; color:white;
+    box-shadow: 0 6px 16px -4px rgba(47,111,237,.6);
+    flex-shrink:0;
+  }
+  .brand h1{ font-size:18px; margin:0; font-weight:700; letter-spacing:.2px;}
+  .brand p{ margin:2px 0 0; font-size:12.5px; color:#9fb2d6; font-weight:500;}
+  .topbar-right{ display:flex; align-items:center; gap:10px; z-index:1;}
+  .pill{
+    font-size:11.5px; font-weight:600; letter-spacing:.3px;
+    padding:6px 12px; border-radius:100px;
+    background:rgba(255,255,255,.08); color:#c9d7f4;
+    border:1px solid rgba(255,255,255,.12);
+    display:flex; align-items:center; gap:6px;
+  }
+  .pill .dot{ width:6px; height:6px; border-radius:50%; background:#4ade80; box-shadow:0 0 0 3px rgba(74,222,128,.18);}
+
+  /* ---------- SECTION HEADS ---------- */
+  .section-head{ display:flex; align-items:baseline; justify-content:space-between; margin: 30px 0 12px;}
+  .section-head h2{ font-size:15px; margin:0; font-weight:700; color: var(--navy-900); }
+  .section-head .sub{ font-size:12.5px; color:var(--gray-500); font-weight:500;}
+
+  /* ---------- DROPZONE ---------- */
+  .dropzone{
+    border:1.5px dashed var(--gray-200);
+    background: white;
+    border-radius: var(--radius);
+    padding: 30px 24px;
+    text-align:center;
+    cursor:pointer;
+    transition: border-color .15s ease, background .15s ease, transform .1s ease;
+    box-shadow: var(--shadow);
+  }
+  .dropzone.drag{ border-color: var(--blue-500); background: var(--sky-bg); }
+  .dropzone .dz-icon{
+    width:46px; height:46px; margin:0 auto 12px; border-radius:12px;
+    background: var(--sky-bg); color: var(--blue-500);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .dropzone h3{ margin:0 0 4px; font-size:14.5px; font-weight:700; color: var(--navy-900);}
+  .dropzone p{ margin:0; font-size:12.5px; color: var(--gray-500); }
+  .dropzone .browse{ color: var(--blue-500); font-weight:600; text-decoration:underline; text-underline-offset:2px;}
+
+  .file-slots{ display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; margin-top:16px;}
+  @media (max-width: 860px){ .file-slots{ grid-template-columns: 1fr; } }
+
+  .file-slot{
+    background:white; border:1px solid var(--gray-100); border-radius: var(--radius);
+    padding:14px 16px; display:flex; align-items:flex-start; gap:12px;
+    box-shadow: var(--shadow);
+    position:relative;
+  }
+  .file-slot .fs-icon{
+    width:36px; height:36px; border-radius:9px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px;
+  }
+  .file-slot.caixa .fs-icon{ background:#ffe9e5; color:#c2410c;}
+  .file-slot.sicredi .fs-icon{ background:#e6f4ea; color:#0c7a3d;}
+  .file-slot.cielo .fs-icon{ background:var(--sky-bg); color:var(--blue-500);}
+  .file-slot .fs-body{ min-width:0; flex:1; }
+  .file-slot .fs-label{ font-size:11px; text-transform:uppercase; letter-spacing:.4px; font-weight:700; color:var(--gray-500);}
+  .file-slot .fs-name{ font-size:13px; font-weight:600; color:var(--ink); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .file-slot .fs-status{ font-size:11.5px; margin-top:3px; color:var(--gray-400); font-weight:500;}
+  .file-slot.filled .fs-status{ color: var(--green); }
+  .file-slot .fs-remove{
+    border:none; background:transparent; color:var(--gray-400); cursor:pointer; font-size:16px;
+    line-height:1; padding:2px 4px; border-radius:6px; flex-shrink:0;
+  }
+  .file-slot .fs-remove:hover{ background:var(--red-bg); color:var(--red); }
+  .file-slot.empty .fs-name{ color:var(--gray-400); font-weight:500;}
+
+  .actions-row{ display:flex; align-items:center; gap:10px; margin-top:18px; flex-wrap:wrap;}
+  .btn{
+    border:none; cursor:pointer; font-family:inherit;
+    font-size:13.5px; font-weight:600; padding:11px 20px; border-radius:10px;
+    display:inline-flex; align-items:center; gap:8px;
+    transition: transform .08s ease, box-shadow .15s ease, opacity .15s ease;
+  }
+  .btn:active{ transform: translateY(1px); }
+  .btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .btn-primary{ background: linear-gradient(135deg, var(--blue-400), var(--blue-500)); color:white; box-shadow:0 8px 18px -8px rgba(47,111,237,.7);}
+  .btn-primary:hover:not(:disabled){ box-shadow:0 10px 22px -8px rgba(47,111,237,.85); }
+  .btn-ghost{ background:white; color:var(--navy-800); border:1px solid var(--gray-200); }
+  .btn-ghost:hover:not(:disabled){ background:var(--gray-50); }
+  .btn-danger-ghost{ background:white; color:var(--red); border:1px solid #f3d3d0; }
+  .btn-danger-ghost:hover:not(:disabled){ background:var(--red-bg); }
+  .btn-export{ background: var(--green); color:white; box-shadow:0 8px 18px -8px rgba(22,163,74,.55);}
+
+  .hint-msg{ font-size:12.5px; color:var(--gray-500); margin-top:2px;}
+
+  /* ---------- METRICS ---------- */
+  .metrics{ display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; }
+  @media (max-width: 900px){ .metrics{ grid-template-columns: repeat(2, 1fr);} }
+  @media (max-width: 520px){ .metrics{ grid-template-columns: 1fr;} }
+  .metric-card{
+    background:white; border-radius: var(--radius); padding:18px 20px;
+    box-shadow: var(--shadow); border:1px solid var(--gray-100);
+    position:relative; overflow:hidden;
+  }
+  .metric-card .m-label{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--gray-500);}
+  .metric-card .m-value{ font-family:var(--mono); font-size:23px; font-weight:700; color:var(--navy-900); margin-top:8px; }
+  .metric-card .m-sub{ font-size:11.5px; color:var(--gray-400); margin-top:5px; font-weight:500;}
+  .metric-card.status .m-value{ font-size:19px; display:flex; align-items:center; gap:8px;}
+  .status-badge{ display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:100px; font-size:12.5px; font-weight:700;}
+  .status-badge.ok{ background:var(--green-bg); color:var(--green); }
+  .status-badge.bad{ background:var(--red-bg); color:var(--red); }
+  .status-badge.idle{ background:var(--gray-100); color:var(--gray-500); }
+
+  /* ---------- TABLES ---------- */
+  .panel{ background:white; border-radius: var(--radius); box-shadow: var(--shadow); border:1px solid var(--gray-100); overflow:hidden;}
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  thead th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px;
+    color:var(--gray-500); font-weight:700; padding:12px 16px; background:var(--gray-50);
+    border-bottom:1px solid var(--gray-100); white-space:nowrap;
+  }
+  tbody td{ padding:12px 16px; border-bottom:1px solid var(--gray-100); color:var(--ink); vertical-align:middle;}
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background: #fafbfe; }
+  td.num, th.num{ text-align:right; font-family:var(--mono); }
+  td.mono{ font-family:var(--mono); font-size:12.5px; color:var(--gray-700); }
+  .diff-pos{ color:var(--green); font-weight:600;}
+  .diff-neg{ color:var(--red); font-weight:600;}
+  .diff-zero{ color:var(--gray-400); }
+
+  .badge{ display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:4px 9px; border-radius:100px; white-space:nowrap;}
+  .badge.b-red{ background:var(--red-bg); color:var(--red); }
+  .badge.b-amber{ background:var(--amber-bg); color:var(--amber); }
+  .badge.b-blue{ background:var(--sky-bg); color:var(--sky); }
+  .badge.b-gray{ background:var(--gray-100); color:var(--gray-500); }
+  .badge-dot{ width:6px; height:6px; border-radius:50%; background:currentColor;}
+
+  /* ---------- DEBUG PANEL ---------- */
+  details.debug-panel{ margin-top:16px; background:white; border:1px solid var(--gray-100); border-radius: var(--radius); box-shadow: var(--shadow); overflow:hidden;}
+  details.debug-panel summary{ cursor:pointer; padding:14px 18px; font-size:13px; font-weight:700; color:var(--navy-900); list-style:none; display:flex; align-items:center; justify-content:space-between;}
+  details.debug-panel summary::-webkit-details-marker{ display:none; }
+  details.debug-panel summary .dbg-hint{ font-size:11.5px; font-weight:500; color:var(--gray-500);}
+  .debug-body{ border-top:1px solid var(--gray-100); max-height:340px; overflow:auto; }
+  .debug-body table{ font-size:12px; }
+  .debug-body td.raw{ font-family:var(--mono); font-size:11.5px; color:var(--gray-700); white-space:nowrap; max-width:520px; overflow:hidden; text-overflow:ellipsis;}
+  .mod-tag{ font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:100px; }
+  .mod-tag.ok{ background:var(--green-bg); color:var(--green); }
+  .mod-tag.warn{ background:var(--gray-100); color:var(--gray-500); }
+
+  .empty-state{ padding:46px 20px; text-align:center; color:var(--gray-500); }
+  .empty-state .es-icon{ width:44px; height:44px; margin:0 auto 12px; border-radius:12px; background:var(--gray-50); display:flex; align-items:center; justify-content:center; color:var(--gray-400);}
+  .empty-state h4{ margin:0 0 4px; color:var(--navy-800); font-size:14px; }
+  .empty-state p{ margin:0; font-size:12.5px; }
+  .empty-state.ok .es-icon{ background:var(--green-bg); color:var(--green); }
+
+  .table-scroll{ max-height: 460px; overflow:auto; }
+  .table-scroll thead th{ position:sticky; top:0; z-index:1; }
+
+  .panel-head{ display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--gray-100);}
+  .panel-head h3{ margin:0; font-size:13.5px; font-weight:700; color:var(--navy-900);}
+  .panel-head .count{ font-size:11.5px; font-weight:700; color:var(--gray-500); background:var(--gray-50); padding:3px 9px; border-radius:100px;}
+
+  /* ---------- LOADING OVERLAY ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(7,20,39,.55); backdrop-filter: blur(2px);
+    display:none; align-items:center; justify-content:center; z-index:50;
+  }
+  .overlay.show{ display:flex; }
+  .loader-card{ background:white; border-radius:16px; padding:26px 34px; text-align:center; box-shadow:0 20px 50px -12px rgba(0,0,0,.4); min-width:260px;}
+  .spinner{ width:34px; height:34px; border-radius:50%; border:3px solid var(--gray-100); border-top-color: var(--blue-500); margin:0 auto 14px; animation:spin .8s linear infinite;}
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+  .loader-card p{ margin:0; font-size:13px; font-weight:600; color:var(--navy-800);}
+
+  .toast{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px);
+    background: var(--navy-900); color:white; padding:12px 20px; border-radius:10px;
+    font-size:13px; font-weight:600; box-shadow:0 10px 30px -10px rgba(0,0,0,.5);
+    opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; z-index:60;
+    display:flex; align-items:center; gap:10px;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.err{ background: #7a1f1f; }
+
+  .results-wrap{ display:none; }
+  .results-wrap.show{ display:block; }
+
+  .legend{ display:flex; gap:16px; flex-wrap:wrap; margin-top:2px;}
+  .legend span{ font-size:12px; color:var(--gray-500); display:flex; align-items:center; gap:6px; font-weight:500;}
+  .legend .sw{ width:9px; height:9px; border-radius:3px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">CB</div>
+      <div>
+        <h1>Conciliação Bancária &amp; Cartões</h1>
+        <p>Setor Financeiro · Cruzamento de Caixa</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="pill"><span class="dot"></span> Processamento 100% local</div>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div class="section-head">
+    <h2>1. Importar arquivos</h2>
+    <span class="sub">PDF do caixa · Extrato Sicredi (XLS/XLSX) · Extrato Cielo (XLSX)</span>
+  </div>
+
+  <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Enviar arquivos para conciliação">
+    <div class="dz-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 16V4M12 4L7 9M12 4l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <h3>Arraste os arquivos aqui</h3>
+    <p>ou <span class="browse">clique para selecionar</span> — até 3 arquivos (.pdf, .xls, .xlsx). O tipo de cada arquivo é detectado automaticamente.</p>
+    <input id="fileInput" type="file" accept=".pdf,.xls,.xlsx" multiple hidden>
+  </div>
+
+  <div class="file-slots">
+    <div class="file-slot caixa empty" id="slot-caixa">
+      <div class="fs-icon">PDF</div>
+      <div class="fs-body">
+        <div class="fs-label">Relatório de Caixa</div>
+        <div class="fs-name">Nenhum arquivo</div>
+        <div class="fs-status">Aguardando envio</div>
+      </div>
+      <button class="fs-remove" data-slot="caixa" title="Remover" style="display:none;">✕</button>
+    </div>
+    <div class="file-slot sicredi empty" id="slot-sicredi">
+      <div class="fs-icon">XLS</div>
+      <div class="fs-body">
+        <div class="fs-label">Extrato Sicredi (PIX)</div>
+        <div class="fs-name">Nenhum arquivo</div>
+        <div class="fs-status">Aguardando envio</div>
+      </div>
+      <button class="fs-remove" data-slot="sicredi" title="Remover" style="display:none;">✕</button>
+    </div>
+    <div class="file-slot cielo empty" id="slot-cielo">
+      <div class="fs-icon">XLSX</div>
+      <div class="fs-body">
+        <div class="fs-label">Extrato Cielo</div>
+        <div class="fs-name">Nenhum arquivo</div>
+        <div class="fs-status">Aguardando envio</div>
+      </div>
+      <button class="fs-remove" data-slot="cielo" title="Remover" style="display:none;">✕</button>
+    </div>
+  </div>
+
+  <div class="actions-row">
+    <button class="btn btn-primary" id="btnProcess" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Processar conciliação
+    </button>
+    <button class="btn btn-ghost" id="btnExport" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      Exportar divergências (.xlsx)
+    </button>
+    <button class="btn btn-danger-ghost" id="btnReset">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1 0 3-6.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 4v5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Limpar / Nova conciliação
+    </button>
+    <span class="hint-msg" id="processHint">Envie ao menos um arquivo para habilitar o processamento.</span>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-wrap" id="resultsWrap">
+
+    <div class="section-head">
+      <h2>2. Visão geral</h2>
+      <span class="sub" id="lastRunLabel"></span>
+    </div>
+
+    <div class="metrics">
+      <div class="metric-card">
+        <div class="m-label">Total Caixa</div>
+        <div class="m-value" id="mCaixa">R$ 0,00</div>
+        <div class="m-sub" id="mCaixaSub">0 lançamentos</div>
+      </div>
+      <div class="metric-card">
+        <div class="m-label">Total Sicredi</div>
+        <div class="m-value" id="mSicredi">R$ 0,00</div>
+        <div class="m-sub" id="mSicrediSub">0 lançamentos</div>
+      </div>
+      <div class="metric-card">
+        <div class="m-label">Total Cielo</div>
+        <div class="m-value" id="mCielo">R$ 0,00</div>
+        <div class="m-sub" id="mCieloSub">0 lançamentos</div>
+      </div>
+      <div class="metric-card status">
+        <div class="m-label">Status geral</div>
+        <div class="m-value"><span class="status-badge idle" id="mStatus">—</span></div>
+        <div class="m-sub" id="mStatusSub">Nenhum processamento ainda</div>
+      </div>
+    </div>
+
+    <div class="section-head">
+      <h2>3. Totais por modalidade</h2>
+      <span class="sub">Caixa × Banco/Adquirente</span>
+    </div>
+    <div class="panel">
+      <table>
+        <thead>
+          <tr>
+            <th>Modalidade</th>
+            <th class="num">Caixa (R$)</th>
+            <th class="num">Banco/Adquirente (R$)</th>
+            <th class="num">Diferença (R$)</th>
+            <th class="num">Lote batido</th>
+          </tr>
+        </thead>
+        <tbody id="summaryBody"></tbody>
+      </table>
+    </div>
+
+    <div class="section-head">
+      <h2>4. Divergências</h2>
+      <span class="sub">Somente transações que não encontraram par correspondente</span>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Detalhamento das divergências</h3>
+        <span class="count" id="divCount">0 itens</span>
+      </div>
+      <div class="legend" style="padding:12px 18px 0;">
+        <span><span class="sw" style="background:var(--red)"></span> Ausente no banco/adquirente</span>
+        <span><span class="sw" style="background:var(--amber)"></span> Valor divergente</span>
+        <span><span class="sw" style="background:var(--sky)"></span> Sobra no banco/adquirente</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Modalidade</th>
+              <th>Data</th>
+              <th>Hora</th>
+              <th>Documento</th>
+              <th class="num">Valor Caixa</th>
+              <th class="num">Valor Banco</th>
+              <th>Origem banco</th>
+            </tr>
+          </thead>
+          <tbody id="divergenceBody"></tbody>
+        </table>
+      </div>
+      <div class="empty-state ok" id="divEmpty" style="display:none;">
+        <div class="es-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h4>Tudo conciliado</h4>
+        <p>Nenhuma divergência encontrada entre caixa, Sicredi e Cielo.</p>
+      </div>
+    </div>
+
+    <details class="debug-panel" id="debugPanel">
+      <summary>
+        <span>🔎 Diagnóstico da leitura do PDF (Caixa) — só aparece na sua tela, nada é enviado</span>
+        <span class="dbg-hint" id="debugHint"></span>
+      </summary>
+      <div class="debug-body">
+        <table>
+          <thead>
+            <tr><th>Data</th><th>Hora</th><th>Modalidade detectada</th><th class="num">Valor</th><th>Linha bruta extraída do PDF</th></tr>
+          </thead>
+          <tbody id="debugBody"></tbody>
+        </table>
+      </div>
+    </details>
+
+  </div>
+
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="loader-card">
+    <div class="spinner"></div>
+    <p id="overlayMsg">Processando arquivos…</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+const state = {
+  files: { caixa: null, sicredi: null, cielo: null },
+  parsed: { caixa: [], sicredi: [], cielo: [] },
+  divergences: [],
+  summary: [],
+  processedOnce: false
+};
+
+const MODAL_LABEL = { PIX: 'PIX', Debito: 'Débito', Credito: 'Crédito', Dinheiro: 'Dinheiro', Cartao: 'Cartão (não especificado)', Outro: 'Não identificado' };
+
+/* =========================================================================
+   UTILITIES
+   ========================================================================= */
+function fmtBRL(v){
+  const n = Number(v)||0;
+  return n.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+}
+
+function parseValorBR(raw){
+  if(raw === null || raw === undefined) return NaN;
+  if(typeof raw === 'number') return raw;
+  let s = String(raw).trim();
+  if(!s) return NaN;
+  let neg = false;
+  if(/^\(.*\)$/.test(s)){ neg = true; s = s.slice(1,-1); }
+  if(/^-/.test(s)){ neg = true; }
+  s = s.replace(/R\$/gi,'').replace(/\s/g,'').replace(/^-/, '');
+  // remove thousand separators, normalize decimal comma
+  if(s.includes(',') && s.includes('.')){
+    s = s.replace(/\./g,'').replace(',', '.');
+  } else if(s.includes(',')){
+    s = s.replace(',', '.');
+  }
+  const n = parseFloat(s);
+  if(isNaN(n)) return NaN;
+  return neg ? -n : n;
+}
+
+function excelSerialToISO(serial){
+  // Excel date serial (1900 system) -> ISO yyyy-mm-dd
+  const utcDays = Math.floor(serial - 25569);
+  const utcMs = utcDays * 86400 * 1000;
+  const d = new Date(utcMs);
+  return d.toISOString().slice(0,10);
+}
+
+function parseDateAny(raw){
+  if(raw === null || raw === undefined || raw === '') return null;
+  if(typeof raw === 'number'){
+    try{ return excelSerialToISO(raw); }catch(e){ return null; }
+  }
+  const s = String(raw).trim();
+  let m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if(m) return `${m[3]}-${m[2]}-${m[1]}`;
+  m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/(\d{2})\/(\d{2})\/(\d{2})$/);
+  if(m) return `20${m[3]}-${m[2]}-${m[1]}`;
+  return null;
+}
+
+function parseTimeAny(raw){
+  if(raw === null || raw === undefined || raw === '') return null;
+  if(typeof raw === 'number' && raw < 1){
+    // excel time fraction of a day
+    const totalMin = Math.round(raw * 24 * 60);
+    const hh = String(Math.floor(totalMin/60)).padStart(2,'0');
+    const mm = String(totalMin%60).padStart(2,'0');
+    return `${hh}:${mm}`;
+  }
+  const s = String(raw).trim();
+  const m = s.match(/(\d{1,2}):(\d{2})/);
+  if(m) return `${m[1].padStart(2,'0')}:${m[2]}`;
+  return null;
+}
+
+function timeDiffMinutes(t1, t2){
+  const [h1,m1] = t1.split(':').map(Number);
+  const [h2,m2] = t2.split(':').map(Number);
+  return Math.abs((h1*60+m1) - (h2*60+m2));
+}
+
+function detectModalidadeFromText(text){
+  const t = text.toUpperCase();
+  if(/CARTEIRA\s*DIGITAL|CART\.?\s*DIG\b/.test(t)) return 'PIX'; // "Cart. Dig" = Carteira Digital = PIX
+  if(/PIX/.test(t)) return 'PIX';
+  if(/D[ÉE]B|DEBITO|CARTAO\s*D[ÉE]B/.test(t)) return 'Debito';
+  if(/CR[ÉE]D|CREDITO|CARTAO\s*CR[ÉE]D/.test(t)) return 'Credito';
+  if(/DINHEIRO|ESPECIE|ESP[ÉE]CIE|CASH/.test(t)) return 'Dinheiro';
+  if(/CART[ÃA]O|CIELO|REDE|GETNET|STONE|VISA|MASTER|ELO\b|TEF/.test(t)) return 'Cartao';
+  return 'Outro';
+}
+
+function showToast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('err', !!isErr);
+  t.classList.add('show');
+  clearTimeout(showToast._tm);
+  showToast._tm = setTimeout(()=> t.classList.remove('show'), 3600);
+}
+
+function showOverlay(msg){
+  document.getElementById('overlayMsg').textContent = msg || 'Processando…';
+  document.getElementById('overlay').classList.add('show');
+}
+function hideOverlay(){ document.getElementById('overlay').classList.remove('show'); }
+
+/* =========================================================================
+   PDF PARSING — RELATÓRIO DE CAIXA
+   ========================================================================= */
+async function extractPdfLines(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const lines = [];
+  for(let p = 1; p <= pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const rows = {};
+    content.items.forEach(item => {
+      if(!item.str || !item.str.trim()) return;
+      const y = Math.round(item.transform[5]);
+      if(!rows[y]) rows[y] = [];
+      rows[y].push(item);
+    });
+    const ys = Object.keys(rows).map(Number).sort((a,b) => b - a);
+    ys.forEach(y => {
+      const line = rows[y]
+        .sort((a,b) => a.transform[4] - b.transform[4])
+        .map(i => i.str)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if(line) lines.push(line);
+    });
+  }
+  return lines;
+}
+
+function parseCaixaLines(lines){
+  const out = [];
+  const dateRe = /(\d{2}\/\d{2}\/\d{4})/;
+  const timeRe = /(\d{2}:\d{2})(?::\d{2})?/;
+  const valorRe = /(\d{1,3}(?:\.\d{3})*,\d{2})/g;
+  const docRe = /\b(\d{4,12})\b/;
+
+  lines.forEach(line => {
+    const dateM = line.match(dateRe);
+    if(!dateM) return;
+    const valores = [...line.matchAll(valorRe)];
+    if(valores.length === 0) return;
+
+    const timeM = line.match(timeRe);
+    const modalidade = detectModalidadeFromText(line);
+
+    // valor: assume última ocorrência numérica no formato monetário é o valor da venda
+    const valorStr = valores[valores.length - 1][1];
+    const valor = parseValorBR(valorStr);
+    if(isNaN(valor) || valor <= 0) return;
+
+    // documento: procura número que não seja parte da data/hora/valor
+    let documento = '';
+    const stripped = line
+      .replace(dateM[0], ' ')
+      .replace(timeM ? timeM[0] : '', ' ')
+      .replace(valorStr, ' ');
+    const docM = stripped.match(docRe);
+    if(docM) documento = docM[1];
+
+    out.push({
+      origem: 'Caixa',
+      data: parseDateAny(dateM[1]),
+      hora: timeM ? parseTimeAny(timeM[1]) : null,
+      modalidade,
+      documento,
+      valor,
+      raw: line
+    });
+  });
+  return out;
+}
+
+/* =========================================================================
+   XLSX HELPERS
+   ========================================================================= */
+async function readWorkbook(file){
+  const buf = await file.arrayBuffer();
+  return XLSX.read(buf, { type: 'array', cellDates: false });
+}
+
+function sheetToMatrix(workbook, sheetIndex){
+  const sheetName = workbook.SheetNames[sheetIndex !== undefined ? sheetIndex : 0];
+  const ws = workbook.Sheets[sheetName];
+  return XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+}
+
+function findHeaderRow(matrix, requiredKeywordsAny){
+  for(let i = 0; i < Math.min(matrix.length, 40); i++){
+    const rowText = matrix[i].map(c => String(c || '').toLowerCase()).join(' | ');
+    const hit = requiredKeywordsAny.some(k => rowText.includes(k));
+    if(hit){
+      // heuristic: header row should have multiple non-empty cells
+      const nonEmpty = matrix[i].filter(c => String(c || '').trim() !== '').length;
+      if(nonEmpty >= 2) return i;
+    }
+  }
+  return -1;
+}
+
+function findColIndex(headerRow, keywords){
+  for(let i = 0; i < headerRow.length; i++){
+    const cell = String(headerRow[i] || '').toLowerCase();
+    if(keywords.some(k => cell.includes(k))) return i;
+  }
+  return -1;
+}
+
+/* =========================================================================
+   DETECÇÃO AUTOMÁTICA DE TIPO DE ARQUIVO XLS/XLSX
+   ========================================================================= */
+async function detectXlsxType(file){
+  try{
+    const wb = await readWorkbook(file);
+    const matrix = sheetToMatrix(wb, 0);
+    const flat = matrix.slice(0, 30).map(r => r.join(' ')).join(' ').toLowerCase();
+    if(/data da venda|forma de pagamento|valor bruto|cielo/.test(flat)) return 'cielo';
+    if(/sicredi|descri[cç][aã]o|documento/.test(flat) && /data/.test(flat)) return 'sicredi';
+    return 'desconhecido';
+  }catch(e){
+    return 'desconhecido';
+  }
+}
+
+/* =========================================================================
+   PARSING — EXTRATO SICREDI (PIX)
+   ========================================================================= */
+async function parseSicredi(file){
+  const wb = await readWorkbook(file);
+  const matrix = sheetToMatrix(wb, 0);
+  const headerIdx = findHeaderRow(matrix, ['data', 'valor', 'documento', 'descri']);
+  if(headerIdx === -1) throw new Error('Não foi possível localizar o cabeçalho no extrato Sicredi.');
+
+  const header = matrix[headerIdx];
+  const colData = findColIndex(header, ['data']);
+  const colDesc = findColIndex(header, ['descri', 'hist', 'pagador', 'nome']);
+  const colDoc  = findColIndex(header, ['documento', 'doc']);
+  const colValor= findColIndex(header, ['valor']);
+
+  if(colData === -1 || colValor === -1) throw new Error('Colunas obrigatórias (Data/Valor) não encontradas no extrato Sicredi.');
+
+  const out = [];
+  for(let i = headerIdx + 1; i < matrix.length; i++){
+    const row = matrix[i];
+    if(!row || row.every(c => String(c || '').trim() === '')) continue;
+    const data = parseDateAny(row[colData]);
+    const valor = parseValorBR(row[colValor]);
+    if(!data || isNaN(valor)) continue;
+    if(valor <= 0) continue; // considerar apenas créditos (entradas) como candidatas a PIX recebido
+    out.push({
+      origem: 'Sicredi',
+      data,
+      hora: null,
+      modalidade: 'PIX',
+      documento: colDoc !== -1 ? String(row[colDoc] || '') : '',
+      valor,
+      raw: colDesc !== -1 ? String(row[colDesc] || '') : ''
+    });
+  }
+  return out;
+}
+
+/* =========================================================================
+   PARSING — EXTRATO CIELO
+   ========================================================================= */
+async function parseCielo(file){
+  const wb = await readWorkbook(file);
+  const matrix = sheetToMatrix(wb, 0);
+  const headerIdx = findHeaderRow(matrix, ['data da venda', 'forma de pagamento', 'valor bruto']);
+  if(headerIdx === -1) throw new Error('Não foi possível localizar o cabeçalho no extrato Cielo.');
+
+  const header = matrix[headerIdx];
+  const colData  = findColIndex(header, ['data da venda', 'data venda', 'data']);
+  const colHora  = findColIndex(header, ['hora da venda', 'hora venda', 'hora']);
+  const colForma = findColIndex(header, ['forma de pagamento', 'forma pagamento', 'bandeira']);
+  const colBruto = findColIndex(header, ['valor bruto']);
+  const colLiq   = findColIndex(header, ['valor l', 'liquido', 'líquido']);
+
+  if(colData === -1 || colForma === -1 || colBruto === -1) throw new Error('Colunas obrigatórias não encontradas no extrato Cielo.');
+
+  const out = [];
+  for(let i = headerIdx + 1; i < matrix.length; i++){
+    const row = matrix[i];
+    if(!row || row.every(c => String(c || '').trim() === '')) continue;
+    const data = parseDateAny(row[colData]);
+    const valorBruto = parseValorBR(row[colBruto]);
+    if(!data || isNaN(valorBruto)) continue;
+    const modalidade = detectModalidadeFromText(String(row[colForma] || ''));
+    out.push({
+      origem: 'Cielo',
+      data,
+      hora: colHora !== -1 ? parseTimeAny(row[colHora]) : null,
+      modalidade,
+      documento: '',
+      valor: valorBruto,
+      valorLiquido: colLiq !== -1 ? parseValorBR(row[colLiq]) : null,
+      raw: String(row[colForma] || '')
+    });
+  }
+  return out;
+}
+
+/* =========================================================================
+   MOTOR DE CONCILIAÇÃO
+   ========================================================================= */
+function matchModalidade(caixaList, bankList){
+  const caixaRemain = caixaList.slice();
+  const bankRemain = bankList.slice();
+  const matched = [];
+
+  // Passo 1 — casamento por MESMA DATA + MESMO VALOR.
+  // Horário e número de documento não são usados como critério: eles não são
+  // confiáveis entre os sistemas (PDV, banco e adquirente numeram/registram de forma diferente).
+  // Quando há mais de um lançamento com o mesmo valor no mesmo dia, o pareamento é feito
+  // por quantidade (o primeiro par disponível é casado, não importa qual "é qual").
+  for(let i = caixaRemain.length - 1; i >= 0; i--){
+    const c = caixaRemain[i];
+    let bestIdx = -1;
+    for(let j = 0; j < bankRemain.length; j++){
+      const b = bankRemain[j];
+      if(c.data === b.data && Math.abs(c.valor - b.valor) <= 0.009){ bestIdx = j; break; }
+    }
+    if(bestIdx >= 0){
+      matched.push({ caixa: c, banco: bankRemain[bestIdx] });
+      bankRemain.splice(bestIdx, 1);
+      caixaRemain.splice(i, 1);
+    }
+  }
+
+  // Passo 2 — valor divergente: mesma data, mas nenhum valor idêntico disponível.
+  // Pareia com o lançamento remanescente do mesmo dia para sinalizar possível erro de valor.
+  const divergValor = [];
+  for(let i = caixaRemain.length - 1; i >= 0; i--){
+    const c = caixaRemain[i];
+    let bestIdx = -1;
+    for(let j = 0; j < bankRemain.length; j++){
+      const b = bankRemain[j];
+      if(c.data === b.data){ bestIdx = j; break; }
+    }
+    if(bestIdx >= 0){
+      divergValor.push({ caixa: c, banco: bankRemain[bestIdx] });
+      bankRemain.splice(bestIdx, 1);
+      caixaRemain.splice(i, 1);
+    }
+  }
+
+  return { matched, divergValor, ausentes: caixaRemain, sobras: bankRemain };
+}
+
+function reconcile(caixaTx, sicrediTx, cieloTx){
+  const bankPIX = sicrediTx.concat(cieloTx.filter(t => t.modalidade === 'PIX'));
+  const bankDebito = cieloTx.filter(t => t.modalidade === 'Debito');
+  const bankCredito = cieloTx.filter(t => t.modalidade === 'Credito');
+  const bankCartao = bankDebito.concat(bankCredito);
+
+  const caixaPIX = caixaTx.filter(t => t.modalidade === 'PIX');
+  const caixaDebito = caixaTx.filter(t => t.modalidade === 'Debito');
+  const caixaCredito = caixaTx.filter(t => t.modalidade === 'Credito');
+  const caixaCartao = caixaTx.filter(t => t.modalidade === 'Cartao');
+  const caixaDinheiro = caixaTx.filter(t => t.modalidade === 'Dinheiro');
+  const caixaOutro = caixaTx.filter(t => t.modalidade === 'Outro');
+
+  const rPIX = matchModalidade(caixaPIX, bankPIX);
+  const rDeb = matchModalidade(caixaDebito, bankDebito);
+  const rCred = matchModalidade(caixaCredito, bankCredito);
+  const rCartao = matchModalidade(caixaCartao, bankCartao);
+
+  const divergences = [];
+
+  function pushDiverg(tipo, item, modalidadeLabel){
+    if(tipo === 'valor_divergente'){
+      divergences.push({
+        tipo, modalidade: modalidadeLabel,
+        data: item.caixa.data, hora: item.caixa.hora || item.banco.hora || '—',
+        documento: item.caixa.documento || '—',
+        valorCaixa: item.caixa.valor, valorBanco: item.banco.valor,
+        origemBanco: item.banco.origem
+      });
+    } else if(tipo === 'ausente_banco'){
+      divergences.push({
+        tipo, modalidade: modalidadeLabel,
+        data: item.data, hora: item.hora || '—',
+        documento: item.documento || '—',
+        valorCaixa: item.valor, valorBanco: null,
+        origemBanco: '—'
+      });
+    } else if(tipo === 'sobra_banco'){
+      divergences.push({
+        tipo, modalidade: modalidadeLabel,
+        data: item.data, hora: item.hora || '—',
+        documento: item.documento || '—',
+        valorCaixa: null, valorBanco: item.valor,
+        origemBanco: item.origem
+      });
+    }
+  }
+
+  [['PIX', rPIX], ['Debito', rDeb], ['Credito', rCred], ['Cartao', rCartao]].forEach(([mod, r]) => {
+    r.divergValor.forEach(item => pushDiverg('valor_divergente', item, mod));
+    r.ausentes.forEach(item => pushDiverg('ausente_banco', item, mod));
+    r.sobras.forEach(item => pushDiverg('sobra_banco', item, mod));
+  });
+
+  // Transações do caixa cujo texto não bateu com nenhuma palavra-chave conhecida.
+  // Nunca ficam ocultas: aparecem como "não identificado" para revisão manual.
+  caixaOutro.forEach(t => {
+    divergences.push({
+      tipo: 'nao_identificado', modalidade: 'Outro',
+      data: t.data, hora: t.hora || '—', documento: t.documento || '—',
+      valorCaixa: t.valor, valorBanco: null, origemBanco: '—', raw: t.raw
+    });
+  });
+
+  function sumBy(list){ return list.reduce((s,t) => s + t.valor, 0); }
+
+  const summary = [
+    { modalidade: 'PIX', caixa: sumBy(caixaPIX), banco: sumBy(bankPIX), batidos: rPIX.matched.length, totalCaixaCount: caixaPIX.length },
+    { modalidade: 'Débito', caixa: sumBy(caixaDebito), banco: sumBy(bankDebito), batidos: rDeb.matched.length, totalCaixaCount: caixaDebito.length },
+    { modalidade: 'Crédito', caixa: sumBy(caixaCredito), banco: sumBy(bankCredito), batidos: rCred.matched.length, totalCaixaCount: caixaCredito.length }
+  ];
+  if(caixaCartao.length > 0 || bankCartao.length > 0){
+    summary.push({ modalidade: 'Cartão (não especificado)', caixa: sumBy(caixaCartao), banco: sumBy(bankCartao), batidos: rCartao.matched.length, totalCaixaCount: caixaCartao.length });
+  }
+  if(caixaDinheiro.length > 0){
+    summary.push({ modalidade: 'Dinheiro', caixa: sumBy(caixaDinheiro), banco: 0, batidos: '—', totalCaixaCount: caixaDinheiro.length, info: true });
+  }
+  if(caixaOutro.length > 0){
+    summary.push({ modalidade: 'Não identificado', caixa: sumBy(caixaOutro), banco: 0, batidos: '—', totalCaixaCount: caixaOutro.length, info: true });
+  }
+
+  return { divergences, summary };
+}
+
+/* =========================================================================
+   UI — DROPZONE / SLOTS
+   ========================================================================= */
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+
+['dragenter','dragover'].forEach(ev => {
+  dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+});
+['dragleave','drop'].forEach(ev => {
+  dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.remove('drag'); });
+});
+dropzone.addEventListener('drop', (e) => {
+  const files = Array.from(e.dataTransfer.files || []);
+  handleIncomingFiles(files);
+});
+fileInput.addEventListener('change', (e) => {
+  const files = Array.from(e.target.files || []);
+  handleIncomingFiles(files);
+  fileInput.value = '';
+});
+
+async function handleIncomingFiles(files){
+  if(!files.length) return;
+  showOverlay('Identificando arquivos…');
+  try{
+    for(const file of files){
+      const ext = file.name.split('.').pop().toLowerCase();
+      if(ext === 'pdf'){
+        assignFile('caixa', file);
+      } else if(ext === 'xls' || ext === 'xlsx'){
+        const type = await detectXlsxType(file);
+        if(type === 'cielo'){
+          assignFile('cielo', file);
+        } else if(type === 'sicredi'){
+          assignFile('sicredi', file);
+        } else {
+          // fallback: preenche o primeiro slot de planilha vazio
+          if(!state.files.sicredi) assignFile('sicredi', file);
+          else if(!state.files.cielo) assignFile('cielo', file);
+          else showToast(`Não foi possível identificar o tipo de "${file.name}". Verifique o layout do arquivo.`, true);
+        }
+      } else {
+        showToast(`Formato não suportado: ${file.name}`, true);
+      }
+    }
+  } finally {
+    hideOverlay();
+    updateProcessButtonState();
+  }
+}
+
+function assignFile(slot, file){
+  state.files[slot] = file;
+  const el = document.getElementById('slot-' + slot);
+  el.classList.remove('empty');
+  el.classList.add('filled');
+  el.querySelector('.fs-name').textContent = file.name;
+  el.querySelector('.fs-status').textContent = 'Pronto para processar';
+  el.querySelector('.fs-remove').style.display = 'inline-flex';
+}
+
+function clearSlot(slot){
+  state.files[slot] = null;
+  const el = document.getElementById('slot-' + slot);
+  el.classList.remove('filled');
+  el.classList.add('empty');
+  const labelMap = { caixa: 'Relatório de Caixa', sicredi: 'Extrato Sicredi (PIX)', cielo: 'Extrato Cielo' };
+  el.querySelector('.fs-name').textContent = 'Nenhum arquivo';
+  el.querySelector('.fs-status').textContent = 'Aguardando envio';
+  el.querySelector('.fs-remove').style.display = 'none';
+  updateProcessButtonState();
+}
+
+document.querySelectorAll('.fs-remove').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    clearSlot(btn.dataset.slot);
+  });
+});
+
+function updateProcessButtonState(){
+  const hasAny = state.files.caixa || state.files.sicredi || state.files.cielo;
+  document.getElementById('btnProcess').disabled = !hasAny;
+  const hint = document.getElementById('processHint');
+  if(!hasAny){
+    hint.textContent = 'Envie ao menos um arquivo para habilitar o processamento.';
+  } else if(!state.files.caixa || !state.files.sicredi || !state.files.cielo){
+    hint.textContent = 'Recomendado enviar os 3 arquivos para uma conciliação completa, mas você já pode processar.';
+  } else {
+    hint.textContent = 'Todos os arquivos carregados. Pronto para processar.';
+  }
+}
+
+/* =========================================================================
+   PROCESSAMENTO PRINCIPAL
+   ========================================================================= */
+document.getElementById('btnProcess').addEventListener('click', async () => {
+  showOverlay('Lendo arquivos…');
+  try{
+    let caixaTx = [], sicrediTx = [], cieloTx = [];
+
+    if(state.files.caixa){
+      showOverlay('Extraindo texto do PDF do caixa…');
+      const lines = await extractPdfLines(state.files.caixa);
+      caixaTx = parseCaixaLines(lines);
+      if(caixaTx.length === 0){
+        showToast('O PDF foi lido, mas nenhuma linha de venda foi reconhecida. Verifique o layout.', true);
+      }
+    }
+    if(state.files.sicredi){
+      showOverlay('Lendo extrato Sicredi…');
+      sicrediTx = await parseSicredi(state.files.sicredi);
+    }
+    if(state.files.cielo){
+      showOverlay('Lendo extrato Cielo…');
+      cieloTx = await parseCielo(state.files.cielo);
+    }
+
+    showOverlay('Cruzando transações…');
+    state.parsed = { caixa: caixaTx, sicredi: sicrediTx, cielo: cieloTx };
+    const { divergences, summary } = reconcile(caixaTx, sicrediTx, cieloTx);
+    state.divergences = divergences;
+    state.summary = summary;
+    state.processedOnce = true;
+
+    renderResults();
+    showToast('Conciliação processada com sucesso.');
+  } catch(err){
+    console.error(err);
+    showToast('Erro ao processar: ' + err.message, true);
+  } finally {
+    hideOverlay();
+  }
+});
+
+/* =========================================================================
+   RENDER
+   ========================================================================= */
+function renderResults(){
+  document.getElementById('resultsWrap').classList.add('show');
+
+  const { caixa, sicredi, cielo } = state.parsed;
+  document.getElementById('mCaixa').textContent = fmtBRL(caixa.reduce((s,t)=>s+t.valor,0));
+  document.getElementById('mCaixaSub').textContent = `${caixa.length} lançamentos`;
+  document.getElementById('mSicredi').textContent = fmtBRL(sicredi.reduce((s,t)=>s+t.valor,0));
+  document.getElementById('mSicrediSub').textContent = `${sicredi.length} lançamentos`;
+  document.getElementById('mCielo').textContent = fmtBRL(cielo.reduce((s,t)=>s+t.valor,0));
+  document.getElementById('mCieloSub').textContent = `${cielo.length} lançamentos`;
+
+  const statusEl = document.getElementById('mStatus');
+  const statusSub = document.getElementById('mStatusSub');
+  if(state.divergences.length === 0){
+    statusEl.textContent = 'Conciliado';
+    statusEl.className = 'status-badge ok';
+    statusSub.textContent = 'Todas as transações foram batidas';
+  } else {
+    statusEl.textContent = 'Divergente';
+    statusEl.className = 'status-badge bad';
+    statusSub.textContent = `${state.divergences.length} pendência(s) encontrada(s)`;
+  }
+
+  document.getElementById('lastRunLabel').textContent =
+    'Processado em ' + new Date().toLocaleString('pt-BR');
+
+  // Tabela resumo
+  const summaryBody = document.getElementById('summaryBody');
+  summaryBody.innerHTML = '';
+  state.summary.forEach(row => {
+    const tr = document.createElement('tr');
+    if(row.info){
+      tr.innerHTML = `
+        <td><strong>${row.modalidade}</strong> <span style="font-size:11px;color:var(--gray-400);font-weight:500;">(sem comparação bancária)</span></td>
+        <td class="num">${fmtBRL(row.caixa)}</td>
+        <td class="num">—</td>
+        <td class="num diff-zero">—</td>
+        <td class="num">${row.totalCaixaCount}</td>
+      `;
+    } else {
+      const diff = row.caixa - row.banco;
+      const diffClass = Math.abs(diff) < 0.01 ? 'diff-zero' : (diff > 0 ? 'diff-neg' : 'diff-pos');
+      tr.innerHTML = `
+        <td><strong>${row.modalidade}</strong></td>
+        <td class="num">${fmtBRL(row.caixa)}</td>
+        <td class="num">${fmtBRL(row.banco)}</td>
+        <td class="num ${diffClass}">${fmtBRL(diff)}</td>
+        <td class="num">${row.batidos}/${row.totalCaixaCount}</td>
+      `;
+    }
+    summaryBody.appendChild(tr);
+  });
+
+  // Tabela divergências
+  const divBody = document.getElementById('divergenceBody');
+  const divEmpty = document.getElementById('divEmpty');
+  divBody.innerHTML = '';
+  document.getElementById('divCount').textContent = `${state.divergences.length} itens`;
+
+  if(state.divergences.length === 0){
+    divEmpty.style.display = 'block';
+  } else {
+    divEmpty.style.display = 'none';
+    state.divergences
+      .slice()
+      .sort((a,b) => (a.data || '').localeCompare(b.data || ''))
+      .forEach(d => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${badgeFor(d.tipo)}</td>
+          <td>${MODAL_LABEL[d.modalidade] || d.modalidade}</td>
+          <td class="mono">${d.data ? formatDateBR(d.data) : '—'}</td>
+          <td class="mono">${d.hora || '—'}</td>
+          <td class="mono">${d.documento || '—'}</td>
+          <td class="num">${d.valorCaixa !== null && d.valorCaixa !== undefined ? fmtBRL(d.valorCaixa) : '—'}</td>
+          <td class="num">${d.valorBanco !== null && d.valorBanco !== undefined ? fmtBRL(d.valorBanco) : '—'}</td>
+          <td>${d.origemBanco || '—'}</td>
+        `;
+        divBody.appendChild(tr);
+      });
+  }
+
+  document.getElementById('btnExport').disabled = state.divergences.length === 0;
+
+  // Painel de diagnóstico — mostra como cada linha do PDF do caixa foi interpretada
+  const debugBody = document.getElementById('debugBody');
+  debugBody.innerHTML = '';
+  const naoIdentificados = caixa.filter(t => t.modalidade === 'Outro').length;
+  document.getElementById('debugHint').textContent =
+    `${caixa.length} linhas reconhecidas · ${naoIdentificados} não identificadas`;
+  caixa.forEach(t => {
+    const tr = document.createElement('tr');
+    const isOk = t.modalidade !== 'Outro';
+    tr.innerHTML = `
+      <td class="mono">${t.data ? formatDateBR(t.data) : '—'}</td>
+      <td class="mono">${t.hora || '—'}</td>
+      <td><span class="mod-tag ${isOk ? 'ok' : 'warn'}">${MODAL_LABEL[t.modalidade] || t.modalidade}</span></td>
+      <td class="num">${fmtBRL(t.valor)}</td>
+      <td class="raw" title="${(t.raw||'').replace(/"/g,'&quot;')}">${t.raw || ''}</td>
+    `;
+    debugBody.appendChild(tr);
+  });
+}
+
+function formatDateBR(iso){
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function badgeFor(tipo){
+  if(tipo === 'ausente_banco') return `<span class="badge b-red"><span class="badge-dot"></span>Ausente no banco</span>`;
+  if(tipo === 'valor_divergente') return `<span class="badge b-amber"><span class="badge-dot"></span>Valor divergente</span>`;
+  if(tipo === 'sobra_banco') return `<span class="badge b-blue"><span class="badge-dot"></span>Sobra no banco</span>`;
+  if(tipo === 'nao_identificado') return `<span class="badge b-gray"><span class="badge-dot"></span>Não identificado</span>`;
+  return tipo;
+}
+
+/* =========================================================================
+   EXPORTAÇÃO
+   ========================================================================= */
+document.getElementById('btnExport').addEventListener('click', () => {
+  if(state.divergences.length === 0){
+    showToast('Não há divergências para exportar.', true);
+    return;
+  }
+  const rows = state.divergences.map(d => ({
+    'Tipo': d.tipo === 'ausente_banco' ? 'Ausente no banco/adquirente'
+          : d.tipo === 'valor_divergente' ? 'Valor divergente'
+          : 'Sobra no banco/adquirente',
+    'Modalidade': MODAL_LABEL[d.modalidade] || d.modalidade,
+    'Data': d.data ? formatDateBR(d.data) : '',
+    'Hora': d.hora || '',
+    'Documento': d.documento || '',
+    'Valor Caixa (R$)': d.valorCaixa !== null && d.valorCaixa !== undefined ? Number(d.valorCaixa.toFixed(2)) : '',
+    'Valor Banco (R$)': d.valorBanco !== null && d.valorBanco !== undefined ? Number(d.valorBanco.toFixed(2)) : '',
+    'Origem Banco': d.origemBanco || ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [ {wch:26},{wch:12},{wch:12},{wch:8},{wch:14},{wch:16},{wch:16},{wch:14} ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Divergências');
+
+  const summaryRows = state.summary.map(s => ({
+    'Modalidade': s.modalidade,
+    'Total Caixa (R$)': Number(s.caixa.toFixed(2)),
+    'Total Banco/Adquirente (R$)': Number(s.banco.toFixed(2)),
+    'Diferença (R$)': Number((s.caixa - s.banco).toFixed(2)),
+    'Transações batidas': `${s.batidos}/${s.totalCaixaCount}`
+  }));
+  const ws2 = XLSX.utils.json_to_sheet(summaryRows);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Resumo');
+
+  const dataStr = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `divergencias_conciliacao_${dataStr}.xlsx`);
+  showToast('Relatório exportado com sucesso.');
+});
+
+/* =========================================================================
+   RESET
+   ========================================================================= */
+document.getElementById('btnReset').addEventListener('click', () => {
+  clearSlot('caixa');
+  clearSlot('sicredi');
+  clearSlot('cielo');
+  state.parsed = { caixa: [], sicredi: [], cielo: [] };
+  state.divergences = [];
+  state.summary = [];
+  state.processedOnce = false;
+  document.getElementById('resultsWrap').classList.remove('show');
+  document.getElementById('btnExport').disabled = true;
+  updateProcessButtonState();
+  showToast('Conciliação reiniciada.');
+});
+
+updateProcessButtonState();
+</script>
+</body>
+</html>
