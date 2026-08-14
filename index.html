@@ -719,6 +719,17 @@ function findColIndex(headerRow, keywords){
   return -1;
 }
 
+function findPixHeaderRow(matrix){
+  for(let i = 0; i < Math.min(matrix.length, 200); i++){
+    const cells = matrix[i].map(c => String(c || '').toLowerCase());
+    const hasData = cells.some(c => c.includes('data'));
+    const hasValor = cells.some(c => c.includes('valor'));
+    const hasDescricao = cells.some(c => /descri|hist|lançamento|lancamento|detalhe|tipo/.test(c));
+    if(hasData && hasValor && hasDescricao) return i;
+  }
+  return -1;
+}
+
 /* =========================================================================
    DETECÇÃO AUTOMÁTICA DE TIPO DE ARQUIVO XLS/XLSX
    ========================================================================= */
@@ -755,7 +766,7 @@ async function parseSicredi(file){
   let matrix = null, headerIdx = -1;
   for(let sheetIndex = 0; sheetIndex < wb.SheetNames.length; sheetIndex++){
     const candidate = sheetToMatrix(wb, sheetIndex);
-    const idx = findHeaderRow(candidate, ['data', 'valor', 'documento', 'descri', 'hist', 'lançamento', 'lancamento']);
+    const idx = findPixHeaderRow(candidate);
     if(idx !== -1){ matrix = candidate; headerIdx = idx; break; }
   }
   if(headerIdx === -1 || !matrix) throw new Error('Não foi possível localizar o cabeçalho no extrato PIX.');
