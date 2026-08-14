@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 1104 203" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,1,-9.904139,-23.970403)">
+        <g transform="matrix(0.377337,-0.128826,0.128826,0.377337,677.865296,234.289713)">
+            <g transform="matrix(59.803217,0,0,59.803217,972.406254,191.213153)">
+            </g>
+            <g transform="matrix(59.803217,0,0,59.803217,994.033019,191.213153)">
+            </g>
+            <g transform="matrix(59.803217,0,0,59.803217,1085.254924,191.213153)">
+            </g>
+            <text x="817.695px" y="191.213px" style="font-family:'BreathingPersonalUseOnly-Reg', 'Breathing Personal Use Only';font-size:59.803px;fill:white;">Dr Jes</text>
+        </g>
+        <g transform="matrix(1.073971,0,0,1.073971,-70.597204,-365.0577)">
+            <g transform="matrix(0.924925,0,0,0.924925,21.904554,36.902875)">
+                <circle cx="308.879" cy="454.305" r="25.163" style="fill:white;"/>
+            </g>
+            <path d="M304.804,521.601C287.78,539.332 263.841,550.376 237.344,550.376C185.726,550.376 143.819,508.469 143.819,456.851C143.819,405.233 185.726,363.326 237.344,363.326C263.45,363.326 287.072,374.045 304.045,391.319L270.982,424.381C262.476,415.571 250.545,410.088 237.344,410.088C211.535,410.088 190.581,431.042 190.581,456.851C190.581,482.66 211.535,503.613 237.344,503.613C250.937,503.613 263.183,497.801 271.731,488.528L304.804,521.601Z" style="fill:white;"/>
+        </g>
+        <g transform="matrix(1.073971,0,0,1.073971,-144.553067,-365.0577)">
+            <g transform="matrix(0.924925,0,0,0.924925,21.904554,36.902875)">
+                <circle cx="308.879" cy="454.305" r="25.163" style="fill:rgb(72,129,243);"/>
+            </g>
+            <path d="M304.804,521.601C287.78,539.332 263.841,550.376 237.344,550.376C185.726,550.376 143.819,508.469 143.819,456.851C143.819,405.233 185.726,363.326 237.344,363.326C263.45,363.326 287.072,374.045 304.045,391.319L270.982,424.381C262.476,415.571 250.545,410.088 237.344,410.088C211.535,410.088 190.581,431.042 190.581,456.851C190.581,482.66 211.535,503.613 237.344,503.613C250.937,503.613 263.183,497.801 271.731,488.528L304.804,521.601Z" style="fill:rgb(72,129,243);"/>
+        </g>
+        <g transform="matrix(14.362997,0,0,14.362997,-5150.661265,-7413.354102)">
+            <g transform="matrix(12,0,0,12,430.958351,526.225535)">
+            </g>
+            <text x="380.89px" y="526.226px" style="font-family:'Candara-Bold', 'Candara', sans-serif;font-weight:700;font-size:12px;fill:white;">Confereaí</text>
+        </g>
+        <g transform="matrix(4.09499,0,0,4.09499,-1235.575411,-1946.130572)">
+            <g transform="matrix(12,0,0,12,484.061867,526.225535)">
+            </g>
+            <text x="380.89px" y="526.226px" style="font-family:'Candara', sans-serif;font-size:12px;fill:rgb(157,157,157);">Conciliação Bancária</text>
+        </g>
+    </g>
+</svg>
