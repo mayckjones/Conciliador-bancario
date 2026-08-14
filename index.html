@@ -224,6 +224,13 @@
   .mod-tag.ok{ background:var(--green-bg); color:var(--green); }
   .mod-tag.warn{ background:var(--gray-100); color:var(--gray-500); }
 
+  .source-compare{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; }
+  .source-panel{ min-width:0; }
+  .source-panel .panel-head{ background:var(--gray-50); }
+  .source-panel .source-note{ padding:10px 16px; color:var(--gray-500); font-size:11.5px; border-bottom:1px solid var(--gray-100); }
+  .source-panel .table-scroll{ max-height:360px; }
+  @media (max-width: 860px){ .source-compare{ grid-template-columns:1fr; } }
+
   .empty-state{ padding:46px 20px; text-align:center; color:var(--gray-500); }
   .empty-state .es-icon{ width:44px; height:44px; margin:0 auto 12px; border-radius:12px; background:var(--gray-50); display:flex; align-items:center; justify-content:center; color:var(--gray-400);}
   .empty-state h4{ margin:0 0 4px; color:var(--navy-800); font-size:14px; }
@@ -436,20 +443,28 @@
       </div>
     </div>
 
-    <details class="debug-panel" id="debugPanel">
-      <summary>
-        <span>🔎 Diagnóstico da leitura do PDF (Caixa) — só aparece na sua tela, nada é enviado</span>
-        <span class="dbg-hint" id="debugHint"></span>
-      </summary>
-      <div class="debug-body">
-        <table>
-          <thead>
-            <tr><th>Data</th><th>Hora</th><th>Modalidade detectada</th><th class="num">Valor</th><th>Linha bruta extraída do PDF</th></tr>
-          </thead>
-          <tbody id="debugBody"></tbody>
-        </table>
+    <div class="section-head">
+      <h2>5. Lançamentos lidos para comparação</h2>
+      <span class="sub">Lado A e Lado B — somente na sua tela, nada é enviado</span>
+    </div>
+    <div class="source-compare">
+      <div class="panel source-panel">
+        <div class="panel-head"><h3 id="sourceATitle">A · Caixa (PDF)</h3><span class="count" id="sourceACount">0 itens</span></div>
+        <div class="source-note">Vendas extraídas da “Relação de Vendas por Período”.</div>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Data</th><th>Hora</th><th>Documento</th><th class="num">Valor</th><th>Linha lida</th></tr></thead>
+          <tbody id="sourceABody"></tbody>
+        </table></div>
       </div>
-    </details>
+      <div class="panel source-panel">
+        <div class="panel-head"><h3 id="sourceBTitle">B · Arquivo comparativo</h3><span class="count" id="sourceBCount">0 itens</span></div>
+        <div class="source-note" id="sourceBNote">Lançamentos identificados no segundo arquivo.</div>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Data</th><th>Hora</th><th>Documento</th><th class="num">Valor</th><th>Descrição / linha lida</th></tr></thead>
+          <tbody id="sourceBBody"></tbody>
+        </table></div>
+      </div>
+    </div>
 
   </div>
 
@@ -1217,24 +1232,40 @@ function renderResults(){
 
   document.getElementById('btnExport').disabled = state.divergences.length === 0;
 
-  // Painel de diagnóstico — mostra como cada linha do PDF do caixa foi interpretada
-  const debugBody = document.getElementById('debugBody');
-  debugBody.innerHTML = '';
-  const naoIdentificados = caixa.filter(t => t.modalidade === 'Outro').length;
-  document.getElementById('debugHint').textContent =
-    `${caixa.length} linhas reconhecidas · ${naoIdentificados} não identificadas`;
-  caixa.forEach(t => {
-    const tr = document.createElement('tr');
-    const isOk = t.modalidade !== 'Outro';
-    tr.innerHTML = `
-      <td class="mono">${t.data ? formatDateBR(t.data) : '—'}</td>
-      <td class="mono">${t.hora || '—'}</td>
-      <td><span class="mod-tag ${isOk ? 'ok' : 'warn'}">${MODAL_LABEL[t.modalidade] || t.modalidade}</span></td>
-      <td class="num">${fmtBRL(t.valor)}</td>
-      <td class="raw" title="${(t.raw||'').replace(/"/g,'&quot;')}">${t.raw || ''}</td>
-    `;
-    debugBody.appendChild(tr);
-  });
+  // Exibe os dois documentos lado a lado para conferência manual, além das divergências.
+  const comparativo = cielo.length ? cielo : sicredi;
+  const comparativoNome = cielo.length ? 'Cielo' : 'Extrato PIX';
+  document.getElementById('sourceACount').textContent = `${caixa.length} lançamentos`;
+  document.getElementById('sourceBCount').textContent = `${comparativo.length} lançamentos`;
+  document.getElementById('sourceBTitle').textContent = `B · ${comparativoNome}`;
+  document.getElementById('sourceBNote').textContent = cielo.length
+    ? 'Vendas aprovadas extraídas do relatório “Detalhado de vendas Cielo”.'
+    : 'Somente lançamentos “RECEBIMENTO PIX” extraídos da planilha.';
+
+  function escapeHtml(value){
+    return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function renderSourceList(targetId, list){
+    const body = document.getElementById(targetId);
+    body.innerHTML = '';
+    list
+      .slice()
+      .sort((a,b) => `${a.data || ''}${a.hora || ''}`.localeCompare(`${b.data || ''}${b.hora || ''}`))
+      .forEach(t => {
+        const raw = t.raw || '—';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="mono">${t.data ? formatDateBR(t.data) : '—'}</td>
+          <td class="mono">${t.hora || '—'}</td>
+          <td class="mono">${escapeHtml(t.documento || '—')}</td>
+          <td class="num">${fmtBRL(t.valor)}</td>
+          <td class="raw" title="${escapeHtml(raw)}">${escapeHtml(raw)}</td>
+        `;
+        body.appendChild(tr);
+      });
+  }
+  renderSourceList('sourceABody', caixa);
+  renderSourceList('sourceBBody', comparativo);
 }
 
 function formatDateBR(iso){
