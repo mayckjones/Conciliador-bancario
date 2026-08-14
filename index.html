@@ -699,7 +699,7 @@ function sheetToMatrix(workbook, sheetIndex){
 }
 
 function findHeaderRow(matrix, requiredKeywordsAny){
-  for(let i = 0; i < Math.min(matrix.length, 40); i++){
+  for(let i = 0; i < Math.min(matrix.length, 200); i++){
     const rowText = matrix[i].map(c => String(c || '').toLowerCase()).join(' | ');
     const hit = requiredKeywordsAny.some(k => rowText.includes(k));
     if(hit){
@@ -725,13 +725,25 @@ function findColIndex(headerRow, keywords){
 async function detectXlsxType(file){
   try{
     const wb = await readWorkbook(file);
-    const matrix = sheetToMatrix(wb, 0);
-    const flat = matrix.slice(0, 30).map(r => r.join(' ')).join(' ').toLowerCase();
-    if(/data da venda|forma de pagamento|valor bruto|cielo/.test(flat)) return 'cielo';
-    if(/sicredi|descri[cç][aã]o|documento/.test(flat) && /data/.test(flat)) return 'sicredi';
-    return 'desconhecido';
+    const flat = wb.SheetNames
+      .map((_, index) => sheetToMatrix(wb, index).slice(0, 250).map(r => r.join(' ')).join(' '))
+      .join(' ')
+      .toLowerCase();
+    const filename = file.name.toLowerCase();
+    const cieloMarkers = ['data da venda', 'forma de pagamento', 'valor bruto'];
+    const cieloScore = cieloMarkers.filter(marker => flat.includes(marker)).length;
+
+    // Um extrato PIX pode ter colunas como "data da venda" ou "valor bruto".
+    // Só o classificamos como Cielo quando o conjunto de colunas característico aparece.
+    if(filename.includes('cielo') || cieloScore >= 2) return 'cielo';
+    if(/pix|sicred|extrato/.test(filename) || /recebimento\s+pix|sicredi/.test(flat)) return 'sicredi';
+
+    // Planilhas que não são claramente Cielo são tratadas como extrato PIX, pois
+    // esse é o modelo padrão de planilha aceito pela ferramenta.
+    return 'sicredi';
   }catch(e){
-    return 'desconhecido';
+    // Evita encaminhar uma planilha com falha de detecção ao leitor da Cielo.
+    return 'sicredi';
   }
 }
 
@@ -740,13 +752,17 @@ async function detectXlsxType(file){
    ========================================================================= */
 async function parseSicredi(file){
   const wb = await readWorkbook(file);
-  const matrix = sheetToMatrix(wb, 0);
-  const headerIdx = findHeaderRow(matrix, ['data', 'valor', 'documento', 'descri']);
-  if(headerIdx === -1) throw new Error('Não foi possível localizar o cabeçalho no extrato Sicredi.');
+  let matrix = null, headerIdx = -1;
+  for(let sheetIndex = 0; sheetIndex < wb.SheetNames.length; sheetIndex++){
+    const candidate = sheetToMatrix(wb, sheetIndex);
+    const idx = findHeaderRow(candidate, ['data', 'valor', 'documento', 'descri', 'hist', 'lançamento', 'lancamento']);
+    if(idx !== -1){ matrix = candidate; headerIdx = idx; break; }
+  }
+  if(headerIdx === -1 || !matrix) throw new Error('Não foi possível localizar o cabeçalho no extrato PIX.');
 
   const header = matrix[headerIdx];
   const colData = findColIndex(header, ['data']);
-  const colDesc = findColIndex(header, ['descri', 'hist', 'pagador', 'nome']);
+  const colDesc = findColIndex(header, ['descri', 'hist', 'pagador', 'nome', 'lançamento', 'lancamento', 'detalhe', 'tipo']);
   const colDoc  = findColIndex(header, ['documento', 'doc']);
   const colValor= findColIndex(header, ['valor']);
 
@@ -756,6 +772,10 @@ async function parseSicredi(file){
   for(let i = headerIdx + 1; i < matrix.length; i++){
     const row = matrix[i];
     if(!row || row.every(c => String(c || '').trim() === '')) continue;
+    const rowText = row.map(c => String(c || '')).join(' ');
+    // A base do extrato é exclusivamente o crédito identificado como RECEBIMENTO PIX.
+    // Tarifas, estornos, transferências e demais movimentos não entram na conciliação.
+    if(!/RECEBIMENTO\s+PIX/i.test(rowText)) continue;
     const data = parseDateAny(row[colData]);
     const valor = parseValorBR(row[colValor]);
     if(!data || isNaN(valor)) continue;
@@ -767,7 +787,7 @@ async function parseSicredi(file){
       modalidade: 'PIX',
       documento: colDoc !== -1 ? String(row[colDoc] || '') : '',
       valor,
-      raw: colDesc !== -1 ? String(row[colDesc] || '') : ''
+      raw: colDesc !== -1 ? String(row[colDesc] || '') : rowText
     });
   }
   return out;
