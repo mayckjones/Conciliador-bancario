@@ -287,7 +287,7 @@
   <!-- UPLOAD -->
   <div class="section-head">
     <h2>1. Importar arquivos</h2>
-    <span class="sub">PDF do caixa · Extrato Sicredi (XLS/XLSX) · Extrato Cielo (XLSX)</span>
+    <span class="sub">Caixa (PDF) + Cielo (PDF/XLSX) ou Extrato PIX (XLS/XLSX)</span>
   </div>
 
   <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Enviar arquivos para conciliação">
@@ -295,7 +295,7 @@
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 16V4M12 4L7 9M12 4l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <h3>Arraste os arquivos aqui</h3>
-    <p>ou <span class="browse">clique para selecionar</span> — até 3 arquivos (.pdf, .xls, .xlsx). O tipo de cada arquivo é detectado automaticamente.</p>
+    <p>ou <span class="browse">clique para selecionar</span> — envie 2 arquivos: Caixa + Cielo, ou Caixa + PIX. O tipo é detectado automaticamente.</p>
     <input id="fileInput" type="file" accept=".pdf,.xls,.xlsx" multiple hidden>
   </div>
 
@@ -321,7 +321,7 @@
     <div class="file-slot cielo empty" id="slot-cielo">
       <div class="fs-icon">XLSX</div>
       <div class="fs-body">
-        <div class="fs-label">Extrato Cielo</div>
+        <div class="fs-label">Relatório Cielo</div>
         <div class="fs-name">Nenhum arquivo</div>
         <div class="fs-status">Aguardando envio</div>
       </div>
@@ -342,7 +342,7 @@
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1 0 3-6.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 4v5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Limpar / Nova conciliação
     </button>
-    <span class="hint-msg" id="processHint">Envie ao menos um arquivo para habilitar o processamento.</span>
+    <span class="hint-msg" id="processHint">Envie o relatório de Caixa e um relatório Cielo ou extrato PIX.</span>
   </div>
 
   <!-- RESULTS -->
@@ -377,8 +377,8 @@
     </div>
 
     <div class="section-head">
-      <h2>3. Totais por modalidade</h2>
-      <span class="sub">Caixa × Banco/Adquirente</span>
+      <h2>3. Totais comparados</h2>
+      <span class="sub">Caixa × Cielo ou Extrato PIX</span>
     </div>
     <div class="panel">
       <table>
@@ -397,7 +397,7 @@
 
     <div class="section-head">
       <h2>4. Divergências</h2>
-      <span class="sub">Somente transações que não encontraram par correspondente</span>
+      <span class="sub">Somente vendas sem correspondência por data e valor</span>
     </div>
 
     <div class="panel">
@@ -609,18 +609,31 @@ async function extractPdfLines(file){
   return lines;
 }
 
+async function detectPdfType(file){
+  try{
+    const lines = await extractPdfLines(file);
+    const text = lines.slice(0, 80).join(' ').toUpperCase();
+    if(text.includes('DETALHADO DE VENDAS CIELO')) return 'cielo';
+    if(text.includes('RELAÇÃO DE VENDAS POR PERÍODO') || text.includes('RELACAO DE VENDAS POR PERIODO')) return 'caixa';
+  }catch(e){
+    console.warn('Não foi possível identificar o PDF:', e);
+  }
+  return 'desconhecido';
+}
+
 function parseCaixaLines(lines){
   const out = [];
   const dateRe = /(\d{2}\/\d{2}\/\d{4})/;
   const timeRe = /(\d{2}:\d{2})(?::\d{2})?/;
   const valorRe = /(\d{1,3}(?:\.\d{3})*,\d{2})/g;
+  const hasValorRe = /(\d{1,3}(?:\.\d{3})*,\d{2})/;
   const docRe = /\b(\d{4,12})\b/;
 
-  lines.forEach(line => {
+  function readLine(line){
     const dateM = line.match(dateRe);
-    if(!dateM) return;
+    if(!dateM) return false;
     const valores = [...line.matchAll(valorRe)];
-    if(valores.length === 0) return;
+    if(valores.length === 0) return false;
 
     const timeM = line.match(timeRe);
     const modalidade = detectModalidadeFromText(line);
@@ -628,7 +641,7 @@ function parseCaixaLines(lines){
     // valor: assume última ocorrência numérica no formato monetário é o valor da venda
     const valorStr = valores[valores.length - 1][1];
     const valor = parseValorBR(valorStr);
-    if(isNaN(valor) || valor <= 0) return;
+    if(isNaN(valor) || valor <= 0) return true;
 
     // documento: procura número que não seja parte da data/hora/valor
     let documento = '';
@@ -648,7 +661,26 @@ function parseCaixaLines(lines){
       valor,
       raw: line
     });
+    return true;
+  }
+
+  // Alguns PDFs do PDV quebram o valor para a linha visual seguinte. Nesse caso,
+  // recompomos a venda antes de interpretá-la, sem confundir cabeçalhos ou totais.
+  let pendente = '';
+  lines.forEach(originalLine => {
+    let line = originalLine;
+    if(dateRe.test(line)){
+      if(pendente) readLine(pendente);
+      const valores = [...line.matchAll(valorRe)];
+      if(!valores.length){ pendente = line; return; }
+      readLine(line);
+      pendente = '';
+    } else if(pendente && hasValorRe.test(line)){
+      readLine(`${pendente} ${line}`);
+      pendente = '';
+    }
   });
+  if(pendente) readLine(pendente);
   return out;
 }
 
@@ -745,6 +777,9 @@ async function parseSicredi(file){
    PARSING — EXTRATO CIELO
    ========================================================================= */
 async function parseCielo(file){
+  if(file.name.toLowerCase().endsWith('.pdf')){
+    return parseCieloPdfLines(await extractPdfLines(file));
+  }
   const wb = await readWorkbook(file);
   const matrix = sheetToMatrix(wb, 0);
   const headerIdx = findHeaderRow(matrix, ['data da venda', 'forma de pagamento', 'valor bruto']);
@@ -778,6 +813,35 @@ async function parseCielo(file){
       raw: String(row[colForma] || '')
     });
   }
+  return out;
+}
+
+// Modelo "Detalhado de vendas Cielo" em PDF. O valor bruto é o primeiro valor
+// monetário da linha; taxa e valor líquido vêm depois e não entram na comparação
+// com o PDV. A conciliação usa somente venda aprovada.
+function parseCieloPdfLines(lines){
+  const out = [];
+  const dateRe = /(\d{2}\/\d{2}\/\d{4})/;
+  const timeRe = /(\d{1,2}:\d{2})/;
+  const moneyRe = /(?:R\$\s*)?(\d{1,3}(?:\.\d{3})*,\d{2})/g;
+
+  lines.forEach(line => {
+    const dateM = line.match(dateRe);
+    if(!dateM || !/\bAPROVADA\b/i.test(line)) return;
+    const amounts = [...line.matchAll(moneyRe)];
+    if(!amounts.length) return;
+    const valor = parseValorBR(amounts[0][1]);
+    if(!Number.isFinite(valor) || valor <= 0) return;
+    out.push({
+      origem: 'Cielo',
+      data: parseDateAny(dateM[1]),
+      hora: (line.match(timeRe) || [])[1] ? parseTimeAny(line.match(timeRe)[1]) : null,
+      modalidade: 'Cartao',
+      documento: '',
+      valor,
+      raw: line
+    });
+  });
   return out;
 }
 
@@ -829,22 +893,11 @@ function matchModalidade(caixaList, bankList){
 }
 
 function reconcile(caixaTx, sicrediTx, cieloTx){
-  const bankPIX = sicrediTx.concat(cieloTx.filter(t => t.modalidade === 'PIX'));
-  const bankDebito = cieloTx.filter(t => t.modalidade === 'Debito');
-  const bankCredito = cieloTx.filter(t => t.modalidade === 'Credito');
-  const bankCartao = bankDebito.concat(bankCredito);
-
-  const caixaPIX = caixaTx.filter(t => t.modalidade === 'PIX');
-  const caixaDebito = caixaTx.filter(t => t.modalidade === 'Debito');
-  const caixaCredito = caixaTx.filter(t => t.modalidade === 'Credito');
-  const caixaCartao = caixaTx.filter(t => t.modalidade === 'Cartao');
-  const caixaDinheiro = caixaTx.filter(t => t.modalidade === 'Dinheiro');
-  const caixaOutro = caixaTx.filter(t => t.modalidade === 'Outro');
-
-  const rPIX = matchModalidade(caixaPIX, bankPIX);
-  const rDeb = matchModalidade(caixaDebito, bankDebito);
-  const rCred = matchModalidade(caixaCredito, bankCredito);
-  const rCartao = matchModalidade(caixaCartao, bankCartao);
+  // Cada execução compara exatamente dois documentos: Caixa × Cielo ou Caixa × PIX.
+  // Débito, crédito e bandeira não participam do cálculo; data e valor são a chave.
+  const bancoTx = cieloTx.length ? cieloTx : sicrediTx;
+  const origem = cieloTx.length ? 'Cielo' : 'Extrato PIX';
+  const resultado = matchModalidade(caixaTx, bancoTx);
 
   const divergences = [];
 
@@ -876,38 +929,17 @@ function reconcile(caixaTx, sicrediTx, cieloTx){
     }
   }
 
-  [['PIX', rPIX], ['Debito', rDeb], ['Credito', rCred], ['Cartao', rCartao]].forEach(([mod, r]) => {
-    r.divergValor.forEach(item => pushDiverg('valor_divergente', item, mod));
-    r.ausentes.forEach(item => pushDiverg('ausente_banco', item, mod));
-    r.sobras.forEach(item => pushDiverg('sobra_banco', item, mod));
-  });
-
-  // Transações do caixa cujo texto não bateu com nenhuma palavra-chave conhecida.
-  // Nunca ficam ocultas: aparecem como "não identificado" para revisão manual.
-  caixaOutro.forEach(t => {
-    divergences.push({
-      tipo: 'nao_identificado', modalidade: 'Outro',
-      data: t.data, hora: t.hora || '—', documento: t.documento || '—',
-      valorCaixa: t.valor, valorBanco: null, origemBanco: '—', raw: t.raw
-    });
-  });
+  resultado.divergValor.forEach(item => pushDiverg('valor_divergente', item, origem));
+  resultado.ausentes.forEach(item => pushDiverg('ausente_banco', item, origem));
+  resultado.sobras.forEach(item => pushDiverg('sobra_banco', item, origem));
 
   function sumBy(list){ return list.reduce((s,t) => s + t.valor, 0); }
 
-  const summary = [
-    { modalidade: 'PIX', caixa: sumBy(caixaPIX), banco: sumBy(bankPIX), batidos: rPIX.matched.length, totalCaixaCount: caixaPIX.length },
-    { modalidade: 'Débito', caixa: sumBy(caixaDebito), banco: sumBy(bankDebito), batidos: rDeb.matched.length, totalCaixaCount: caixaDebito.length },
-    { modalidade: 'Crédito', caixa: sumBy(caixaCredito), banco: sumBy(bankCredito), batidos: rCred.matched.length, totalCaixaCount: caixaCredito.length }
-  ];
-  if(caixaCartao.length > 0 || bankCartao.length > 0){
-    summary.push({ modalidade: 'Cartão (não especificado)', caixa: sumBy(caixaCartao), banco: sumBy(bankCartao), batidos: rCartao.matched.length, totalCaixaCount: caixaCartao.length });
-  }
-  if(caixaDinheiro.length > 0){
-    summary.push({ modalidade: 'Dinheiro', caixa: sumBy(caixaDinheiro), banco: 0, batidos: '—', totalCaixaCount: caixaDinheiro.length, info: true });
-  }
-  if(caixaOutro.length > 0){
-    summary.push({ modalidade: 'Não identificado', caixa: sumBy(caixaOutro), banco: 0, batidos: '—', totalCaixaCount: caixaOutro.length, info: true });
-  }
+  const summary = [{
+    modalidade: `Caixa × ${origem}`,
+    caixa: sumBy(caixaTx), banco: sumBy(bancoTx),
+    batidos: resultado.matched.length, totalCaixaCount: caixaTx.length
+  }];
 
   return { divergences, summary };
 }
@@ -944,18 +976,26 @@ async function handleIncomingFiles(files){
     for(const file of files){
       const ext = file.name.split('.').pop().toLowerCase();
       if(ext === 'pdf'){
-        assignFile('caixa', file);
+        const type = await detectPdfType(file);
+        if(type === 'caixa' || type === 'cielo'){
+          if(type === 'cielo' && state.files.sicredi){
+            showToast('Use somente um comparativo por vez: Cielo ou Extrato PIX.', true);
+          } else {
+            assignFile(type, file);
+          }
+        } else {
+          showToast(`Não foi possível identificar o modelo do PDF "${file.name}".`, true);
+        }
       } else if(ext === 'xls' || ext === 'xlsx'){
         const type = await detectXlsxType(file);
         if(type === 'cielo'){
-          assignFile('cielo', file);
+          if(state.files.sicredi) showToast('Use somente um comparativo por vez: Cielo ou Extrato PIX.', true);
+          else assignFile('cielo', file);
         } else if(type === 'sicredi'){
-          assignFile('sicredi', file);
+          if(state.files.cielo) showToast('Use somente um comparativo por vez: Cielo ou Extrato PIX.', true);
+          else assignFile('sicredi', file);
         } else {
-          // fallback: preenche o primeiro slot de planilha vazio
-          if(!state.files.sicredi) assignFile('sicredi', file);
-          else if(!state.files.cielo) assignFile('cielo', file);
-          else showToast(`Não foi possível identificar o tipo de "${file.name}". Verifique o layout do arquivo.`, true);
+          showToast(`Não foi possível identificar o tipo de "${file.name}". Verifique o layout do arquivo.`, true);
         }
       } else {
         showToast(`Formato não suportado: ${file.name}`, true);
@@ -997,15 +1037,19 @@ document.querySelectorAll('.fs-remove').forEach(btn => {
 });
 
 function updateProcessButtonState(){
-  const hasAny = state.files.caixa || state.files.sicredi || state.files.cielo;
-  document.getElementById('btnProcess').disabled = !hasAny;
+  const hasCaixa = !!state.files.caixa;
+  const hasComparativo = !!state.files.sicredi || !!state.files.cielo;
+  const ready = hasCaixa && hasComparativo;
+  document.getElementById('btnProcess').disabled = !ready;
   const hint = document.getElementById('processHint');
-  if(!hasAny){
-    hint.textContent = 'Envie ao menos um arquivo para habilitar o processamento.';
-  } else if(!state.files.caixa || !state.files.sicredi || !state.files.cielo){
-    hint.textContent = 'Recomendado enviar os 3 arquivos para uma conciliação completa, mas você já pode processar.';
+  if(!hasCaixa && !hasComparativo){
+    hint.textContent = 'Envie o relatório de Caixa e um relatório Cielo ou extrato PIX.';
+  } else if(!hasCaixa){
+    hint.textContent = 'Falta o relatório "Relação de Vendas por Período" do Caixa.';
+  } else if(!hasComparativo){
+    hint.textContent = 'Envie o "Detalhado de vendas Cielo" ou a planilha de extrato PIX.';
   } else {
-    hint.textContent = 'Todos os arquivos carregados. Pronto para processar.';
+    hint.textContent = 'Arquivos prontos. A conciliação mostrará somente o que não bate.';
   }
 }
 
@@ -1016,6 +1060,10 @@ document.getElementById('btnProcess').addEventListener('click', async () => {
   showOverlay('Lendo arquivos…');
   try{
     let caixaTx = [], sicrediTx = [], cieloTx = [];
+
+    if(!state.files.caixa || (!state.files.sicredi && !state.files.cielo)){
+      throw new Error('Envie o relatório do Caixa e exatamente um arquivo comparativo.');
+    }
 
     if(state.files.caixa){
       showOverlay('Extraindo texto do PDF do caixa…');
