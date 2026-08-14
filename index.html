@@ -215,15 +215,13 @@
   .mod-tag.ok{ background:var(--green-bg); color:var(--green); }
   .mod-tag.warn{ background:var(--gray-100); color:var(--gray-500); }
 
-  .source-compare{
-    display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px;
-    max-height:460px; overflow:auto; align-items:start;
-  }
-  .source-panel{ min-width:0; }
-  .source-panel .panel-head{ background:var(--gray-50); }
-  .source-panel .source-note{ padding:10px 16px; color:var(--gray-500); font-size:11.5px; border-bottom:1px solid var(--gray-100); }
-  .source-panel .table-scroll{ max-height:none; overflow:visible; }
-  @media (max-width: 860px){ .source-compare{ grid-template-columns:1fr; } }
+  .source-compare{ max-height:460px; overflow:auto; }
+  .source-compare table{ min-width:1100px; }
+  .source-note{ padding:10px 16px; color:var(--gray-500); font-size:11.5px; border-bottom:1px solid var(--gray-100); }
+  .source-compare .group-a{ background:#f1f6ff; color:var(--blue-500); }
+  .source-compare .group-b{ background:#eefaf2; color:var(--green); }
+  .source-compare .side-divider{ border-left:3px solid var(--gray-200); }
+  .source-compare .missing-side{ color:var(--gray-400); text-align:center; }
 
   .empty-state{ padding:46px 20px; text-align:center; color:var(--gray-500); }
   .empty-state .es-icon{ width:44px; height:44px; margin:0 auto 12px; border-radius:12px; background:var(--gray-50); display:flex; align-items:center; justify-content:center; color:var(--gray-400);}
@@ -440,23 +438,16 @@
       <h2>5. Lançamentos lidos para comparação</h2>
       <span class="sub">Lado A e Lado B — somente na sua tela, nada é enviado</span>
     </div>
-    <div class="source-compare">
-      <div class="panel source-panel">
-        <div class="panel-head"><h3 id="sourceATitle">A · Caixa (PDF)</h3><span class="count" id="sourceACount">0 itens</span></div>
-        <div class="source-note">Vendas extraídas da “Relação de Vendas por Período”.</div>
-        <div class="table-scroll"><table>
-          <thead><tr><th>Data</th><th>Hora</th><th>Documento</th><th class="num">Valor</th><th>Linha lida</th></tr></thead>
-          <tbody id="sourceABody"></tbody>
-        </table></div>
-      </div>
-      <div class="panel source-panel">
-        <div class="panel-head"><h3 id="sourceBTitle">B · Arquivo comparativo</h3><span class="count" id="sourceBCount">0 itens</span></div>
-        <div class="source-note" id="sourceBNote">Lançamentos identificados no segundo arquivo.</div>
-        <div class="table-scroll"><table>
-          <thead><tr><th>Data</th><th>Hora</th><th>Documento</th><th class="num">Valor</th><th>Descrição / linha lida</th></tr></thead>
-          <tbody id="sourceBBody"></tbody>
-        </table></div>
-      </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Comparação linha a linha</h3><span class="count" id="sourceCompareCount">0 pares</span></div>
+      <div class="source-note" id="sourceBNote">Valores iguais, na mesma data, ficam alinhados na mesma linha.</div>
+      <div class="source-compare"><table>
+        <thead>
+          <tr><th colspan="5" class="group-a">A · Caixa (PDF)</th><th colspan="5" class="group-b side-divider" id="sourceBTitle">B · Arquivo comparativo</th></tr>
+          <tr><th>Data</th><th>Hora</th><th>Documento</th><th class="num">Valor</th><th>Linha lida</th><th class="side-divider">Data</th><th>Hora</th><th>Documento</th><th class="num">Valor</th><th>Descrição / linha lida</th></tr>
+        </thead>
+        <tbody id="sourceCompareBody"></tbody>
+      </table></div>
     </div>
 
   </div>
@@ -1229,37 +1220,50 @@ function renderResults(){
   // Exibe os dois documentos lado a lado para conferência manual, além das divergências.
   const comparativo = cielo.length ? cielo : sicredi;
   const comparativoNome = cielo.length ? 'Cielo' : 'Extrato PIX';
-  document.getElementById('sourceACount').textContent = `${caixa.length} lançamentos`;
-  document.getElementById('sourceBCount').textContent = `${comparativo.length} lançamentos`;
   document.getElementById('sourceBTitle').textContent = `B · ${comparativoNome}`;
   document.getElementById('sourceBNote').textContent = cielo.length
-    ? 'Vendas aprovadas extraídas do relatório “Detalhado de vendas Cielo”.'
-    : 'Somente lançamentos “RECEBIMENTO PIX” extraídos da planilha.';
+    ? 'Vendas aprovadas extraídas do relatório “Detalhado de vendas Cielo”. Valores iguais ficam na mesma linha do Caixa.'
+    : 'Somente lançamentos “RECEBIMENTO PIX” extraídos da planilha. Valores iguais ficam na mesma linha do Caixa.';
 
   function escapeHtml(value){
     return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-  function renderSourceList(targetId, list){
-    const body = document.getElementById(targetId);
-    body.innerHTML = '';
-    list
-      .slice()
-      .sort((a,b) => `${a.data || ''}${a.hora || ''}`.localeCompare(`${b.data || ''}${b.hora || ''}`))
-      .forEach(t => {
-        const raw = t.raw || '—';
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="mono">${t.data ? formatDateBR(t.data) : '—'}</td>
-          <td class="mono">${t.hora || '—'}</td>
-          <td class="mono">${escapeHtml(t.documento || '—')}</td>
-          <td class="num">${fmtBRL(t.valor)}</td>
-          <td class="raw" title="${escapeHtml(raw)}">${escapeHtml(raw)}</td>
-        `;
-        body.appendChild(tr);
-      });
+  function sortTransactions(list){
+    return list.slice().sort((a,b) => `${a.data || ''}${a.hora || ''}`.localeCompare(`${b.data || ''}${b.hora || ''}`));
   }
-  renderSourceList('sourceABody', caixa);
-  renderSourceList('sourceBBody', comparativo);
+  function alignTransactions(leftList, rightList){
+    const rightRemaining = sortTransactions(rightList);
+    const aligned = [];
+    sortTransactions(leftList).forEach(left => {
+      const index = rightRemaining.findIndex(right =>
+        left.data === right.data && Math.abs(left.valor - right.valor) <= 0.009
+      );
+      aligned.push({ left, right: index >= 0 ? rightRemaining.splice(index, 1)[0] : null });
+    });
+    rightRemaining.forEach(right => aligned.push({ left: null, right }));
+    return aligned;
+  }
+  function sourceCells(t, divider){
+    const dividerClass = divider ? ' side-divider' : '';
+    if(!t) return `<td colspan="5" class="missing-side${dividerClass}">— sem lançamento correspondente —</td>`;
+    const raw = t.raw || '—';
+    return `
+      <td class="mono${dividerClass}">${t.data ? formatDateBR(t.data) : '—'}</td>
+      <td class="mono">${t.hora || '—'}</td>
+      <td class="mono">${escapeHtml(t.documento || '—')}</td>
+      <td class="num">${fmtBRL(t.valor)}</td>
+      <td class="raw" title="${escapeHtml(raw)}">${escapeHtml(raw)}</td>
+    `;
+  }
+  const alignedRows = alignTransactions(caixa, comparativo);
+  document.getElementById('sourceCompareCount').textContent = `${alignedRows.length} linhas`;
+  const compareBody = document.getElementById('sourceCompareBody');
+  compareBody.innerHTML = '';
+  alignedRows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = sourceCells(row.left, false) + sourceCells(row.right, true);
+    compareBody.appendChild(tr);
+  });
 }
 
 function formatDateBR(iso){
