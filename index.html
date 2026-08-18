@@ -639,33 +639,51 @@ function parseCaixaLines(lines){
   const hasValorRe = /(\d{1,3}(?:\.\d{3})*,\d{2})/;
   const docRe = /\b(\d{4,12})\b/;
 
-  function readLine(line){
+  let lastData = null;
+  let lastHora = null;
+  let lastDoc = '';
+
+  function readLine(line, isExtra = false){
     const dateM = line.match(dateRe);
-    if(!dateM) return false;
+    if(!isExtra && !dateM) return false;
+    
     const valores = [...line.matchAll(valorRe)];
     if(valores.length === 0) return false;
 
-    const timeM = line.match(timeRe);
-    const modalidade = detectModalidadeFromText(line);
+    let data, hora, documento;
+    let timeM = line.match(timeRe);
 
-    // valor: assume última ocorrência numérica no formato monetário é o valor da venda
+    if(isExtra){
+      if(!lastData) return false;
+      data = lastData;
+      hora = lastHora;
+      documento = lastDoc;
+    } else {
+      const valorStr = valores[valores.length - 1][1];
+      let stripped = line
+        .replace(dateM[0], ' ')
+        .replace(timeM ? timeM[0] : '', ' ')
+        .replace(valorStr, ' ');
+      const docM = stripped.match(docRe);
+      
+      data = dateM[1];
+      hora = timeM ? timeM[1] : null;
+      documento = docM ? docM[1] : '';
+
+      lastData = data;
+      lastHora = hora;
+      lastDoc = documento;
+    }
+
+    const modalidade = detectModalidadeFromText(line);
     const valorStr = valores[valores.length - 1][1];
     const valor = parseValorBR(valorStr);
     if(isNaN(valor) || valor <= 0) return true;
 
-    // documento: procura número que não seja parte da data/hora/valor
-    let documento = '';
-    const stripped = line
-      .replace(dateM[0], ' ')
-      .replace(timeM ? timeM[0] : '', ' ')
-      .replace(valorStr, ' ');
-    const docM = stripped.match(docRe);
-    if(docM) documento = docM[1];
-
     out.push({
       origem: 'Caixa',
-      data: parseDateAny(dateM[1]),
-      hora: timeM ? parseTimeAny(timeM[1]) : null,
+      data: parseDateAny(data),
+      hora: hora ? parseTimeAny(hora) : null,
       modalidade,
       documento,
       valor,
@@ -688,6 +706,9 @@ function parseCaixaLines(lines){
     } else if(pendente && hasValorRe.test(line)){
       readLine(`${pendente} ${line}`);
       pendente = '';
+    } else if(lastData && hasValorRe.test(line) && !/total/i.test(line) && !/troco/i.test(line) && !/devolu/i.test(line) && !/pagto/i.test(line)){
+      // Trata linhas como "Cartao Mag 40,00" que são pagamentos adicionais da mesma venda
+      readLine(line, true);
     }
   });
   if(pendente) readLine(pendente);
