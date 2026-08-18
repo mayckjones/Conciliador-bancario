@@ -481,7 +481,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
    STATE
    ========================================================================= */
 const state = {
-  files: { caixa: null, sicredi: null, cielo: null },
+  files: { caixa: [], sicredi: [], cielo: [] },
   parsed: { caixa: [], sicredi: [], cielo: [] },
   divergences: [],
   summary: [],
@@ -1040,7 +1040,7 @@ async function handleIncomingFiles(files){
       if(ext === 'pdf'){
         const type = await detectPdfType(file);
         if(type === 'caixa' || type === 'cielo'){
-          if(type === 'cielo' && state.files.sicredi){
+          if(type === 'cielo' && state.files.sicredi.length > 0){
             showToast('Use somente um comparativo por vez: Cielo ou Extrato PIX.', true);
           } else {
             assignFile(type, file);
@@ -1051,10 +1051,10 @@ async function handleIncomingFiles(files){
       } else if(ext === 'xls' || ext === 'xlsx'){
         const type = await detectXlsxType(file);
         if(type === 'cielo'){
-          if(state.files.sicredi) showToast('Use somente um comparativo por vez: Cielo ou Extrato PIX.', true);
+          if(state.files.sicredi.length > 0) showToast('Use somente um comparativo por vez: Cielo ou Extrato PIX.', true);
           else assignFile('cielo', file);
         } else if(type === 'sicredi'){
-          if(state.files.cielo) showToast('Use somente um comparativo por vez: Cielo ou Extrato PIX.', true);
+          if(state.files.cielo.length > 0) showToast('Use somente um comparativo por vez: Cielo ou Extrato PIX.', true);
           else assignFile('sicredi', file);
         } else {
           showToast(`Não foi possível identificar o tipo de "${file.name}". Verifique o layout do arquivo.`, true);
@@ -1070,17 +1070,21 @@ async function handleIncomingFiles(files){
 }
 
 function assignFile(slot, file){
-  state.files[slot] = file;
+  state.files[slot].push(file);
   const el = document.getElementById('slot-' + slot);
   el.classList.remove('empty');
   el.classList.add('filled');
-  el.querySelector('.fs-name').textContent = file.name;
+  if (state.files[slot].length === 1) {
+    el.querySelector('.fs-name').textContent = file.name;
+  } else {
+    el.querySelector('.fs-name').textContent = `${state.files[slot].length} arquivos`;
+  }
   el.querySelector('.fs-status').textContent = 'Pronto para processar';
   el.querySelector('.fs-remove').style.display = 'inline-flex';
 }
 
 function clearSlot(slot){
-  state.files[slot] = null;
+  state.files[slot] = [];
   const el = document.getElementById('slot-' + slot);
   el.classList.remove('filled');
   el.classList.add('empty');
@@ -1099,8 +1103,8 @@ document.querySelectorAll('.fs-remove').forEach(btn => {
 });
 
 function updateProcessButtonState(){
-  const hasCaixa = !!state.files.caixa;
-  const hasComparativo = !!state.files.sicredi || !!state.files.cielo;
+  const hasCaixa = state.files.caixa.length > 0;
+  const hasComparativo = state.files.sicredi.length > 0 || state.files.cielo.length > 0;
   const ready = hasCaixa && hasComparativo;
   document.getElementById('btnProcess').disabled = !ready;
   const hint = document.getElementById('processHint');
@@ -1123,25 +1127,31 @@ document.getElementById('btnProcess').addEventListener('click', async () => {
   try{
     let caixaTx = [], sicrediTx = [], cieloTx = [];
 
-    if(!state.files.caixa || (!state.files.sicredi && !state.files.cielo)){
-      throw new Error('Envie o relatório do Caixa e exatamente um arquivo comparativo.');
+    if(state.files.caixa.length === 0 || (state.files.sicredi.length === 0 && state.files.cielo.length === 0)){
+      throw new Error('Envie relatórios do Caixa e arquivos de um comparativo.');
     }
 
-    if(state.files.caixa){
-      showOverlay('Extraindo texto do PDF do caixa…');
-      const lines = await extractPdfLines(state.files.caixa);
-      caixaTx = parseCaixaLines(lines);
+    if(state.files.caixa.length > 0){
+      showOverlay('Extraindo texto do(s) PDF(s) do caixa.');
+      for (const file of state.files.caixa) {
+        const lines = await extractPdfLines(file);
+        caixaTx = caixaTx.concat(parseCaixaLines(lines));
+      }
       if(caixaTx.length === 0){
-        showToast('O PDF foi lido, mas nenhuma linha de venda foi reconhecida. Verifique o layout.', true);
+        showToast('Os PDFs foram lidos, mas nenhuma linha de venda foi reconhecida. Verifique o layout.', true);
       }
     }
-    if(state.files.sicredi){
-      showOverlay('Lendo extrato Sicredi…');
-      sicrediTx = await parseSicredi(state.files.sicredi);
+    if(state.files.sicredi.length > 0){
+      showOverlay('Lendo extrato(s) Sicredi.');
+      for (const file of state.files.sicredi) {
+        sicrediTx = sicrediTx.concat(await parseSicredi(file));
+      }
     }
-    if(state.files.cielo){
-      showOverlay('Lendo extrato Cielo…');
-      cieloTx = await parseCielo(state.files.cielo);
+    if(state.files.cielo.length > 0){
+      showOverlay('Lendo extrato(s) Cielo.');
+      for (const file of state.files.cielo) {
+        cieloTx = cieloTx.concat(await parseCielo(file));
+      }
     }
 
     showOverlay('Cruzando transações…');
