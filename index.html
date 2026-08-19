@@ -449,9 +449,20 @@
       <span class="sub">Lado A e Lado B — somente na sua tela, nada é enviado</span>
     </div>
     <div class="panel">
-      <div class="panel-head"><h3>Comparação linha a linha</h3><span class="count" id="sourceCompareCount">0 pares</span></div>
+      <div class="panel-head" style="gap:10px; display:flex; align-items:center;">
+        <h3 style="flex:1;">Comparação linha a linha</h3>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-ghost" id="btnPrevDivergence" style="padding: 6px 10px; font-size: 12px; display: none;" title="Divergência anterior">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 19V5m0 0l-4 4m4-4l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="btn btn-ghost" id="btnNextDivergence" style="padding: 6px 10px; font-size: 12px; display: none;" title="Próxima divergência">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14m0 0l-4-4m4-4l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <span class="count" id="sourceCompareCount">0 pares</span>
+      </div>
       <div class="source-note" id="sourceBNote">Valores iguais, na mesma data, ficam alinhados na mesma linha.</div>
-      <div class="source-compare"><table>
+      <div class="source-compare" id="sourceCompareScroll"><table>
         <thead>
           <tr><th colspan="5" class="group-a">A · Caixa (PDF)</th><th colspan="5" class="group-b side-divider" id="sourceBTitle">B · Arquivo comparativo</th></tr>
           <tr><th>Data</th><th>Hora</th><th>Documento</th><th class="num">Valor</th><th>Linha lida</th><th class="side-divider">Data</th><th>Hora</th><th>Documento</th><th class="num">Valor</th><th>Descrição / linha lida</th></tr>
@@ -1302,11 +1313,19 @@ function renderResults(){
   document.getElementById('sourceCompareCount').textContent = `${alignedRows.length} linhas`;
   const compareBody = document.getElementById('sourceCompareBody');
   compareBody.innerHTML = '';
+  let hasDivergences = false;
   alignedRows.forEach(row => {
+    const isDivergent = !row.left || !row.right;
+    if(isDivergent) hasDivergences = true;
     const tr = document.createElement('tr');
+    if(isDivergent) tr.classList.add('has-divergence');
     tr.innerHTML = sourceCells(row.left, false) + sourceCells(row.right, true);
     compareBody.appendChild(tr);
   });
+  
+  document.getElementById('btnPrevDivergence').style.display = hasDivergences ? 'inline-flex' : 'none';
+  document.getElementById('btnNextDivergence').style.display = hasDivergences ? 'inline-flex' : 'none';
+  window.currentDivergenceIndex = -1;
 }
 
 function formatDateBR(iso){
@@ -1380,6 +1399,34 @@ document.getElementById('btnReset').addEventListener('click', () => {
 });
 
 updateProcessButtonState();
+
+window.currentDivergenceIndex = -1;
+function scrollToDivergence(direction) {
+  const container = document.getElementById('sourceCompareScroll');
+  const divergences = container.querySelectorAll('tr.has-divergence');
+  if (divergences.length === 0) return;
+
+  if (direction === 'next') {
+    window.currentDivergenceIndex++;
+    if (window.currentDivergenceIndex >= divergences.length) window.currentDivergenceIndex = 0;
+  } else {
+    window.currentDivergenceIndex--;
+    if (window.currentDivergenceIndex < 0) window.currentDivergenceIndex = divergences.length - 1;
+  }
+
+  const target = divergences[window.currentDivergenceIndex];
+  const headerOffset = 82; 
+  const targetTop = target.offsetTop - headerOffset - 4; 
+
+  container.scrollTo({ top: targetTop, behavior: 'smooth' });
+
+  divergences.forEach(el => el.style.backgroundColor = '');
+  target.style.backgroundColor = 'rgba(255, 170, 0, 0.15)';
+  setTimeout(() => { target.style.backgroundColor = ''; }, 1500);
+}
+
+document.getElementById('btnNextDivergence').addEventListener('click', () => scrollToDivergence('next'));
+document.getElementById('btnPrevDivergence').addEventListener('click', () => scrollToDivergence('prev'));
 </script>
 </body>
 </html>
