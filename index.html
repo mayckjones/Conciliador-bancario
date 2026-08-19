@@ -644,6 +644,8 @@ function parseCaixaLines(lines){
   let lastDoc = '';
 
   function readLine(line, isExtra = false){
+    // Filtra apenas expressões de totais para evitar barrar modalidades (ex: "Cartão da Loja")
+    if(/(total geral|total da loja|subtotal|total bruto|total liquido|^total\b)/i.test(line.trim())) return false;
     const dateM = line.match(dateRe);
     if(!isExtra && !dateM) return false;
     
