@@ -1321,10 +1321,10 @@ function renderResults(){
     const num = divider ? ++countB : ++countA;
     const raw = t.raw || '—';
     return `
-      <td class="num${dividerClass}" style="color:var(--gray-400); font-size:11px; padding-right:8px;">${num}</td>
+      <td class="num${dividerClass}" style="color:var(--gray-400); font-size:11px; text-align:center;">${num}</td>
       <td class="mono">${t.data ? formatDateBR(t.data) : '—'}</td>
       <td class="mono">${t.hora || '—'}</td>
-      <td class="mono">${escapeHtml(t.documento || '—')}</td>
+      <td class="mono" style="text-align:center;">${escapeHtml(t.documento || '—')}</td>
       <td class="num">${fmtBRL(t.valor)}</td>
       <td class="raw" title="${escapeHtml(raw)}">${escapeHtml(raw)}</td>
     `;
