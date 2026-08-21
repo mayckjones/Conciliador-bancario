@@ -452,6 +452,9 @@
       <div class="panel-head" style="gap:10px; display:flex; align-items:center;">
         <h3 style="flex:1;">Comparação linha a linha</h3>
         <div style="display:flex; gap:6px;">
+          <button class="btn btn-export" id="btnExportCompare" style="padding: 6px 10px; font-size: 12px; display: none;" title="Exportar comparação (.xlsx)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
           <button class="btn btn-ghost" id="btnPrevDivergence" style="padding: 6px 10px; font-size: 12px; display: none;" title="Divergência anterior">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
           </button>
@@ -496,6 +499,7 @@ const state = {
   parsed: { caixa: [], sicredi: [], cielo: [] },
   divergences: [],
   summary: [],
+  alignedRows: [],
   processedOnce: false
 };
 
@@ -1330,6 +1334,7 @@ function renderResults(){
     `;
   }
   const alignedRows = alignTransactions(caixa, comparativo);
+  state.alignedRows = alignedRows;
   document.getElementById('sourceCompareCount').textContent = `${alignedRows.length} linhas`;
   const compareBody = document.getElementById('sourceCompareBody');
   compareBody.innerHTML = '';
@@ -1345,6 +1350,7 @@ function renderResults(){
   
   document.getElementById('btnPrevDivergence').style.display = hasDivergences ? 'inline-flex' : 'none';
   document.getElementById('btnNextDivergence').style.display = hasDivergences ? 'inline-flex' : 'none';
+  document.getElementById('btnExportCompare').style.display = alignedRows.length > 0 ? 'inline-flex' : 'none';
   window.currentDivergenceIndex = -1;
 }
 
@@ -1401,6 +1407,46 @@ document.getElementById('btnExport').addEventListener('click', () => {
   showToast('Relatório exportado com sucesso.');
 });
 
+document.getElementById('btnExportCompare').addEventListener('click', () => {
+  if(!state.alignedRows || state.alignedRows.length === 0){
+    showToast('Não há lançamentos para exportar.', true);
+    return;
+  }
+  
+  let countA = 0;
+  let countB = 0;
+  const rows = state.alignedRows.map((row) => {
+    const left = row.left;
+    const right = row.right;
+    
+    return {
+      'Lado A (#)': left ? ++countA : '—',
+      'Caixa - Data': left && left.data ? formatDateBR(left.data) : '—',
+      'Caixa - Hora': left && left.hora ? left.hora : '—',
+      'Caixa - Documento': left && left.documento ? left.documento : '—',
+      'Caixa - Valor (R$)': left && left.valor !== null ? Number(left.valor.toFixed(2)) : '',
+      'Caixa - Linha Lida': left && left.raw ? left.raw : '—',
+      
+      'Lado B (#)': right ? ++countB : '—',
+      'Banco - Data': right && right.data ? formatDateBR(right.data) : '—',
+      'Banco - Hora': right && right.hora ? right.hora : '—',
+      'Banco - Documento': right && right.documento ? right.documento : '—',
+      'Banco - Valor (R$)': right && right.valor !== null ? Number(right.valor.toFixed(2)) : '',
+      'Banco - Linha Lida': right && right.raw ? right.raw : '—',
+      
+      'Status': (!left || !right) ? 'Divergente' : 'Batido'
+    };
+  });
+  
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Comparativo');
+  
+  const dataStr = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `comparativo_linha_a_linha_${dataStr}.xlsx`);
+  showToast('Comparativo exportado com sucesso.');
+});
+
 /* =========================================================================
    RESET
    ========================================================================= */
@@ -1411,9 +1457,11 @@ document.getElementById('btnReset').addEventListener('click', () => {
   state.parsed = { caixa: [], sicredi: [], cielo: [] };
   state.divergences = [];
   state.summary = [];
+  state.alignedRows = [];
   state.processedOnce = false;
   document.getElementById('resultsWrap').classList.remove('show');
   document.getElementById('btnExport').disabled = true;
+  document.getElementById('btnExportCompare').style.display = 'none';
   updateProcessButtonState();
   showToast('Conciliação reiniciada.');
 });
